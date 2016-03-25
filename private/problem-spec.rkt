@@ -1,7 +1,19 @@
 #lang racket/base
 
+;; TODO
+;; - stop ignoring syntax information?
+;; - compile forall/exists to lambdas, re-use Racket's identifier management
 
-#;(provide (contract-out
+
+(provide
+  read-problem
+  ;; (-> Any Problem)
+
+  lint-problem
+  ;; (-> Problem Void)
+
+
+ #;(contract-out
   make-problem
 
 
@@ -24,15 +36,14 @@
 ))
 
 (require
-  ;; --- to-be-replaced
-  "predicates.rkt"
-  "private/util.rkt"
-  ;; --- necessary
+  kodkod/private/predicates
+  kodkod/private/exceptions
+
   racket/match
   racket/set
   (for-syntax racket/base syntax/parse)
   syntax/parse
-  ;; --- maybe not necessary
+
   (only-in racket/list cartesian-product drop-right)
 )
 
@@ -44,7 +55,7 @@
   universe ;; (Listof Symbol)
   bound*   ;; (Listof Bound)
   formula* ;; (Listof Formula)
-))
+) #:transparent )
 
 ;; -----------------------------------------------------------------------------
 ;; universe = listof symbol = listof atom
@@ -86,35 +97,43 @@
 
 (struct formula () #:transparent)
 
-(struct no formula (e))           ;; Empty
-(struct lone formula (e))         ;; at most one
-(struct one formula (e))          ;; exactly one
-(struct some formula (e))         ;; non-empty
-(struct subset formula (e0 e1))   ;; subseteq
-(struct equal formula (e0 e1))
-(struct neg formula (f))
-(struct wedge formula (f0 f1))
-(struct vee formula (f0 f1))
-(struct implies formula (f0 f1))
-(struct iff formula (f0 f1))
-(struct forall formula (v* f))
-(struct exists formula (v* f))
+(define-syntax-rule (define-formula* [id e] ...)
+  (begin (struct id formula e #:transparent) ...))
+
+(define-formula*
+  (no (e))           ;; Empty
+  (lone (e))         ;; at most one
+  (one (e))          ;; exactly one
+  (some (e))         ;; non-empty
+  (subset (e0 e1))   ;; subseteq
+  (equal (e0 e1))
+  (neg (f))
+  (wedge (f0 f1))
+  (vee (f0 f1))
+  (implies (f0 f1))
+  (iff (f0 f1))
+  (forall (v* f))
+  (exists (v* f)))
 
 ;; -----------------------------------------------------------------------------
 
-(struct expr ())
+(struct expr () #:transparent)
 
-(struct var expr (v))
-(struct transpose expr (e))        ;; ~
-(struct closure expr (e))          ;; ^
-(struct refl expr (e))             ;; *
-(struct union expr (e1 e2))        ;; \cup
-(struct intersection expr (e1 e2)) ;; \cap
-(struct difference  expr (e1 e2))  ;; \setminus
-(struct join  expr (e1 e2))        ;; .
-(struct product expr (e1 e2))      ;; \rightarrow
-(struct if/else expr (f e1 e2))    ;; f ? e1 : e2
-(struct comprehension (v* f))      ;; { v* | f }
+(define-syntax-rule (define-expr* [id e] ...)
+  (begin (struct id expr e #:transparent) ...))
+
+(define-expr*
+  (var (v))
+  (transpose (e))        ;; ~
+  (closure (e))          ;; ^
+  (refl (e))             ;; *
+  (union (e1 e2))        ;; \cup
+  (intersection (e1 e2)) ;; \cap
+  (difference  (e1 e2))  ;; \setminus
+  (join  (e1 e2))        ;; .
+  (product (e1 e2))      ;; \rightarrow
+  (if/else (f e1 e2))    ;; f ? e1 : e2
+  (comprehension (v* f)))     ;; { v* | f }
 
 ;; -----------------------------------------------------------------------------
 ;; varDecls = (Listof (Pairof Var Expr))
@@ -264,73 +283,65 @@
 
 ;; -----------------------------------------------------------------------------
 
-(define (read-problem any)
-  (cond
-   [(path-string? any)
-    (path-string->problem any)]
-   [(input-port? any)
-    (input-port->problem any)]
-   [else
-    (parse-error 'read-problem "Cannot read from source '~a'" any)]))
-
-(define (path-string->problem ps)
-  (with-input-from-file ps
-    (lambda ()
-      (input-port->problem (current-input-port) ps))))
-
-(begin-for-syntax
-
-  (define-syntax-class (kk f)
-    #:attributes (value)
-    (pattern e
-     #:with e+ (f #'e)
-     #:when (syntax-e #'e+)
-     #:attr value (syntax-e #'e+)))
-)
-
 (define (relBound# stx)
   (syntax-parse stx
-   [(v:id {(lo*:id ...) ...} {(hi*:id ...) ...})
-    (define arity (arity=? (syntax-e #'((lo* ...) ...))
-                           (syntax-e #'((hi* ...) ...))))
-    (relBound (syntax-e #'v)
-              arity
-              (syntax->datum #'((lo* ...) ...))
-              (syntax->datum #'((hi* ...) ...)))]
+   [(v:id {(lo*-stx:id ...) ...} {(hi*-stx:id ...) ...})
+    (define lo* (syntax->datum #'((lo*-stx ...) ...)))
+    (define hi* (syntax->datum #'((hi*-stx ...) ...)))
+    (define arity (arity=? lo* hi*))
+    (relBound (syntax-e #'v) arity lo* hi*)]
    [_ #f]))
-
-(define (kkstx->value* stx)
-  (map syntax-e (syntax-e stx)))
 
 (define (formula# stx)
   (syntax-parse stx
    #:datum-literals (no lone one some ⊆ = ¬ ∨ ∧ ⇒ ⇔ ∀ : ∃ ∣)
-   [(no e:(kk expr#))
-    (no (syntax-e #'e.value))]
-   [(lone e:(kk expr#))
-    (lone (syntax-e #'e.value))]
-   [(one e:(kk expr#))
-    (one (syntax-e #'e.value))]
-   [(some e:(kk expr#))
-    (some (syntax-e #'e.value))]
-   [(⊆ e*:(kk expr#) ...)
-    (apply subset (kkstx->value* #'e*))]
-   [(= e*:(kk expr#) ...)
-    (apply equal (kkstx->value* #'e*))]
-;   [(¬ f:(kk formula#))
-;    (neg (syntax-e #'f.value))]
-;   [(∧ f0:(kk formula#) f1:(kk formula#))
-;    (wedge (syntax-e #'f0.value) (syntax-e #'f1.value))]
-;   [(∨ f0:(kk formula#) f1:(kk formula#))
-;    (vee (syntax-e #'f0.value) (syntax-e #'f1.value))]
-;   [(⇒ f0:(kk formula#) f1:(kk formula#))
-;    (implies (syntax-e #'f0.value) (syntax-e #'f1.value))]
-;   [(⇔ f0:(kk formula#) f1:(kk formula#))
-;    (iff (syntax-e #'f0.value) (syntax-e #'f1.value))]
-;   [(∀ v*:(kk varDecls#) ∣ f:(kk formula#))
-;    (forall (syntax-e #'v*.value) (syntax-e #'f.value))]
-;   [(∃ v*:(kk varDecls#) ∣ f:(kk formula#))
-;    (exists (syntax-e #'v*.value) (syntax-e #'f.value))]
+   [(no e)
+    (define e (expr# #'e))
+    (and e (no e))]
+   [(lone e)
+    (define e (expr# #'e))
+    (and e (lone e))]
+   [(one e)
+    (define e (expr# #'e))
+    (and e (one e))]
+   [(some e)
+    (define e (expr# #'e))
+    (and e (some e))]
+   [(⊆ e0 e1)
+    (define e0 (expr# #'e0))
+    (define e1 (expr# #'e1))
+    (and e0 e1 (subset e0 e1))]
+   [(= e0 e1)
+    (define e0 (expr# #'e0))
+    (define e1 (expr# #'e1))
+    (and e0 e1 (equal e0 e1))]
+   [(¬ f)
+    (let ([f (formula# #'f)])
+      (and f (neg f)))]
+   [(∧ f0 f1)
+    (define f0 (formula# #'f0))
+    (define f1 (formula# #'f1))
+    (and f0 f1 (wedge f0 f1))]
+   [(∨ f0 f1)
+    (define f0 (formula# #'f0))
+    (define f1 (formula# #'f1))
+    (and f0 f1 (vee f0 f1))]
+   [(⇒ f0 f1)
+    (define f0 (formula# #'f0))
+    (define f1 (formula# #'f1))
+    (and f0 f1 (implies f0 f1))]
+   [(⇔ f0 f1)
+    (define f0 (formula# #'f0))
+    (define f1 (formula# #'f1))
+    (and f0 f1 (iff f0 f1))]
+   [(∀ v* (~optional ∣) f)
+    (let ([v* (varDecls# #'v*)]
+          [f (formula# #'f)])
+      (and v* f (forall v* f)))]
+   [(∃ v* ∣ f)
+    (define v* (varDecls# #'v*))
+    (define f (formula# #'f))
+    (and v* f (exists v* f))]
    [_ #f]))
 
 (define (expr# stx)
@@ -338,26 +349,44 @@
    #:datum-literals (~ ^ * ∪ ∩ ∖ ∙ → ? : ∣)
    [x:id
     (var (syntax-e #'x))]
-   [(~ e:(kk expr#))
-    (transpose (syntax-e #'e.value))]
-   [(^ e:(kk expr#))
-    (closure (syntax-e #'e.value))]
-   [(* e:(kk expr#))
-    (refl (syntax-e #'e.value))]
-   [(∪ e*:(kk expr#) ...)
-    (apply union (kkstx->value* #'e*))]
-   [(∩ e*:(kk expr#) ...)
-    (apply intersection (kkstx->value* #'e*))]
-;   [(∖ e0:(kk expr#) e1:(kk expr#))
-;    (difference (syntax-e #'e0.value) (syntax-e #'e1.value))]
-;   [(∙ e0:(kk expr#) e1:(kk expr#))
-;    (join (syntax-e #'e0.value) (syntax-e #'e1.value))]
-;   [(→ e0:(kk expr#) e1:(kk expr#))
-;    (product (synta-e #'e0.value) (syntax-e #'e1.value))]
-;   [(f:(kk formula#) ? e0:(kk expr#) : e1:(kk expr#))
-;    (if/else (syntax-e #'f.value) (syntax-e #'e0.value) (syntax-e #'e1.value))]
-;   [(v*:(kk varDecls#) ∣ f:(kk formula#))
-;    (comprehension (syntax-e #'v*.value) (syntax-e #'f.value))]
+   [(~ e)
+    (define e (expr# #'e))
+    (and e (transpose e))]
+   [(^ e)
+    (define e (expr# #'e))
+    (and e (closure e))]
+   [(* e)
+    (define e (expr# #'e))
+    (and e (refl e))]
+   [(∪ e0 e1)
+    (define e0 (expr# #'e0))
+    (define e1 (expr# #'e1))
+    (and e0 e1 (union e0 e1))]
+   [(∩ e0 e1)
+    (define e0 (expr# #'e0))
+    (define e1 (expr# #'e1))
+    (and e0 e1 (intersection e0 e1))]
+   [(∖ e0 e1)
+    (define e0 (expr# #'e0))
+    (define e1 (expr# #'e1))
+    (and e0 e1 (difference e0 e1))]
+   [(∙ e0 e1)
+    (define e0 (expr# #'e0))
+    (define e1 (expr# #'e1))
+    (and e0 e1 (join e0 e1))]
+   [(→ e0 e1)
+    (define e0 (expr# #'e0))
+    (define e1 (expr# #'e1))
+    (and e0 e1 (product e0 e1))]
+   [(f ? e0 : e1)
+    (define f (formula# #'f))
+    (define e0 (expr# #'e0))
+    (define e1 (expr# #'e1))
+    (and f e0 e1 (if/else f e0 e1))]
+   [(v* ∣ f)
+    (define v* (varDecls# #'v*))
+    (define f (formula# #'f))
+    (and v* f (comprehension v* f))]
    [_ #f]))
 
 (define (varDecls# stx)
@@ -372,36 +401,64 @@
     (and (for/and ([vd (in-list vd*)]) vd) vd*)]
    [_ #f]))
 
-
 ;; (-> Input-Port Problem)
-(define (input-port->problem in-port [source-name #f])
+(define (input-port->problem [source-path #f] [in-port (current-input-port)])
   (define U  (box #f))
   (define B* (box '()))
   (define F* (box #f))
   (let loop ()
-    (let ([stx (read-syntax in-port)])
+    (let ([stx (read in-port)])
       (if (eof-object? stx)
         (void)
         (begin
-         (syntax-parse stx
-          #:datum-literals (universe var formula)
-          [((~optional universe) x*:id ...)
+         (syntax-parse #`#,stx ;; IDK why, but `read-syntax` alone just hangs
+          #:datum-literals (universe var fuck)
+          [(universe x*:id ...)
            ;; It always feels bad throwing away lexical information
            (set-box! U (syntax->datum #'(x* ...)))]
-          [((~optional var) e* ...)
-           #:with rb* (map relBound# (syntax-e #'(e* ...)))
-           #:when (andmap syntax-e (syntax-e #'rb*))
-           (set-box! B* (append (syntax-e #'rb*) (unbox B*)))]
-          [((~optional formula) e* ...)
-           #:with f* (map formula# (syntax-e #'(e* ...)))
-           #:when (andmap syntax-e (syntax-e #'f*))
-           (set-box! F* (append (syntax-e #'f*) (unbox F*)))]
+          [(var e* ...)
+           (set-box!/parse B* relBound# (syntax-e #'(e* ...)) #:src source-path)]
+          [(formula e* ...)
+           (set-box!/parse F* formula# (syntax-e #'(e* ...)) #:src source-path)]
           [_
-           (parse-warning 'input-port->problem stx)])
+           (parse-warning source-path stx)])
          (loop)))))
   (cond
    [(not (unbox U))
-    (parse-error 'input-port->problem "Failed to parse universe of atoms")]
+    (parse-error source-path "Failed to parse universe of atoms")]
    [else
     (problem (unbox U) (unbox B*) (unbox F*))]))
 
+(define (set-box!/parse bx parse# e* #:src source-path)
+  (set-box! bx
+    (let loop ([e* e*])
+      (cond
+       [(null? e*)
+        (unbox bx)]
+       [(parse# (car e*))
+        => (lambda (rb) (cons rb (loop (cdr e*))))]
+       [else
+        (parse-warning source-path (syntax->datum (car e*)))
+        (loop (cdr e*))]))))
+
+(define (read-problem [src-path #f] [any (current-input-port)])
+  (cond
+   [(path-string? any)
+    (path-string->problem any)]
+   [(input-port? any)
+    (input-port->problem src-path any)]
+   [else
+    (parse-error 'read-problem "Cannot read from source '~a'" any)]))
+
+(define (path-string->problem ps)
+  (with-input-from-file ps
+    (lambda ()
+      (input-port->problem ps))))
+
+;; -----------------------------------------------------------------------------
+
+(define (lint-problem kk)
+  ;; TODO
+  ;; - no unbound variables
+  ;; -  .;...
+  (void))

@@ -10,6 +10,8 @@
   parse-error
 
   parse-warning
+
+  debug
 )
 
 ;; =============================================================================
@@ -20,9 +22,16 @@
 (define-syntax-rule (internal-error loc msg arg* ...)
   (error (string->symbol (format "internal-error:~a" loc)) msg arg* ...))
 
-(define-syntax-rule (parse-error loc msg arg* ...)
-  (error (string->symbol (format "parse-error:~a" loc)) msg arg* ...))
+(define-syntax-rule (parse-error src msg arg* ...)
+  (error 'parse-error
+    (string-append
+      (format msg arg* ...)
+      (format "\n  src: ~a" src))))
 
-(define-syntax-rule (parse-warning loc stx)
-  (printf "WARNING (~a:~a) could not parse datum '~a'\n"
-    (syntax-line stx) (syntax-column stx) (syntax->datum stx)))
+(define-syntax-rule (parse-warning loc val)
+  (printf "WARNING could not parse datum '~a'\n  at: ~a\n" val loc))
+
+(define-syntax-rule (debug msg arg* ...)
+  (when #t
+    (printf msg arg* ...)
+    (newline)))
