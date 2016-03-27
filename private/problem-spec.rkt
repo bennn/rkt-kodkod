@@ -307,30 +307,30 @@
    [(some e)
     (define e (expr# #'e))
     (and e (some e))]
-   [(⊆ e0 e1)
+   [(~or (⊆ e0 e1) (e0 ⊆ e1))
     (define e0 (expr# #'e0))
     (define e1 (expr# #'e1))
     (and e0 e1 (subset e0 e1))]
-   [(= e0 e1)
+   [(~or (= e0 e1) (e0 = e1))
     (define e0 (expr# #'e0))
     (define e1 (expr# #'e1))
     (and e0 e1 (equal e0 e1))]
    [(¬ f)
     (let ([f (formula# #'f)])
       (and f (neg f)))]
-   [(∧ f0 f1)
+   [(~or (∧ f0 f1) (f0 ∧ f1))
     (define f0 (formula# #'f0))
     (define f1 (formula# #'f1))
     (and f0 f1 (wedge f0 f1))]
-   [(∨ f0 f1)
+   [(~or (∨ f0 f1) (f0 ∨ f1))
     (define f0 (formula# #'f0))
     (define f1 (formula# #'f1))
     (and f0 f1 (vee f0 f1))]
-   [(⇒ f0 f1)
+   [(~or (⇒ f0 f1) (f0 ⇒ f1))
     (define f0 (formula# #'f0))
     (define f1 (formula# #'f1))
     (and f0 f1 (implies f0 f1))]
-   [(⇔ f0 f1)
+   [(~or (⇔ f0 f1) (f0 ⇔ f1))
     (define f0 (formula# #'f0))
     (define f1 (formula# #'f1))
     (and f0 f1 (iff f0 f1))]
@@ -358,23 +358,23 @@
    [(* e)
     (define e (expr# #'e))
     (and e (refl e))]
-   [(∪ e0 e1)
+   [(~or (∪ e0 e1) (e0 ∪ e1))
     (define e0 (expr# #'e0))
     (define e1 (expr# #'e1))
     (and e0 e1 (union e0 e1))]
-   [(∩ e0 e1)
+   [(~or (∩ e0 e1) (e0 ∩ e1))
     (define e0 (expr# #'e0))
     (define e1 (expr# #'e1))
     (and e0 e1 (intersection e0 e1))]
-   [(∖ e0 e1)
+   [(~or (∖ e0 e1) (e0 ∖ e1))
     (define e0 (expr# #'e0))
     (define e1 (expr# #'e1))
     (and e0 e1 (difference e0 e1))]
-   [(∙ e0 e1)
+   [(~or (∙ e0 e1) (e0 ∙ e1))
     (define e0 (expr# #'e0))
     (define e1 (expr# #'e1))
     (and e0 e1 (join e0 e1))]
-   [(→ e0 e1)
+   [(~or (→ e0 e1) (e0 → e1))
     (define e0 (expr# #'e0))
     (define e1 (expr# #'e1))
     (and e0 e1 (product e0 e1))]

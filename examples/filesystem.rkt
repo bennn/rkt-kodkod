@@ -28,8 +28,8 @@
 
 ;; -----------------------------------------------------------------------------
 (formula
-  (⊆ contents (→ Dir (∪ Dir File)))
-  (∀ ([d : Dir]) ∣ (¬ (⊆ d (∙ d (^ contents)))))
-  (⊆ Root Dir)
-  (⊆ (∪ File Dir) (∙ Root (* contents))))
+  (contents ⊆ (Dir → (Dir ∪ File)))
+  (∀ ([d : Dir]) ∣ (¬ (d ⊆ (d ∙ (^ contents)))))
+  (Root ⊆ Dir)
+  ((File ∪ Dir) ⊆ (∙ Root (* contents))))
 
