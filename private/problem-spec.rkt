@@ -3,6 +3,7 @@
 ;; TODO
 ;; - stop ignoring syntax information?
 ;; - compile forall/exists to lambdas, re-use Racket's identifier management
+;; - atoms in tuples must be ordered by universe
 
 
 (provide
@@ -44,12 +45,12 @@
   (for-syntax racket/base syntax/parse)
   syntax/parse
 
-  (only-in racket/list cartesian-product drop-right)
+  (only-in racket/list drop-right)
 )
 
 ;; =============================================================================
+;; === STRUCTS
 
-;; -----------------------------------------------------------------------------
 ;; kodkod = problem
 (struct problem (
   universe ;; (Listof Symbol)
@@ -265,10 +266,16 @@
                [e (varDecl-e vd)]
                [s* (E e b)])
           (values (cons s* s**) (⊕ b v s*)))))
-    (list->set (cartesian-product (reverse s**-rev)))]))
+    (for/set ([x (in-product (reverse s**-rev) 2)])
+      x)))
 
-;; -----------------------------------------------------------------------------
-;; Set operations
+;; =============================================================================
+;; === Set operations
+
+(define (in-product x* n)
+  (unless (= n 2)
+    (raise-user-error 'in-product "Not implemented unless n=2"))
+  (cartesian-product x*))
 
 ;; For now, just handle pairs
 ;; ??? are all the output tuples the same length?
@@ -281,7 +288,8 @@
   (or (and a (not b))
       (and (not a) b)))
 
-;; -----------------------------------------------------------------------------
+;; =============================================================================
+;; === Parsing
 
 (define (relBound# stx)
   (syntax-parse stx
@@ -455,10 +463,103 @@
     (lambda ()
       (input-port->problem ps))))
 
-;; -----------------------------------------------------------------------------
+;; =============================================================================
+;; === Linting / Typechecking
 
 (define (lint-problem kk)
   ;; TODO
   ;; - no unbound variables
   ;; -  .;...
   (void))
+
+;; =============================================================================
+;; === Bit Matrix
+;; Model relations as matrices of boolean values
+;;
+;; TODO best representation?
+;; - math/matrix (ha ha)
+;; - bitvector library
+;; - integer representation (native bitstrings)
+;; - vector library (track trivial bounds?)
+;; - function
+
+;(provide
+;  relBound->matrix
+;)
+
+(define (relBound->matrix kk rb)
+  (bit-matrix
+    (lambda (a*)
+      (unless (= (length a*) (relBound-arity rb))
+        (raise-user-error 'matrix "Expected ~a elements, got ~a" arity a*))
+      (let ([a* (if (atom?* a*) a* (index->atom* a*))])
+        (cond
+         [(set-member? (relBound-lo* rb) a*)
+          1]
+         [(set-member? (relBound-hi* rb) a*)
+          (\Nu v a*)] ;; TODO
+         [else
+          0])))))
+
+(define (bit-matrix f)
+  (unless (procedure? f)
+    (raise-user-error 'bit-matrix "Can only make matrix from procedures"))
+  ;; Cache needs abstraction, not sure how to implement now.
+  ;; What is a matrix anyway? Just a function ?
+  (void))
+
+
+;; =============================================================================
+;; === Problem -> SAT
+
+(define-syntax-rule (unbound-atom kk a)
+  (raise-user-error 'kodkod "Invalid atom '~a', universe is ~a" a (problem-universe kk)))
+
+(define (atom->index kk a)
+  (or (for/first ([u (in-list (problem-universe kk))]
+                  [i (in-naturals)]
+                  #:when (eq? a u))
+        i)
+      (unbound-atom kk a)))
+
+(define (atom->index* kk a*)
+  (for/list ([a (in-list a*)])
+    (atom->index kk a)))
+
+(define (index->atom kk i)
+  (or (for/first ([u (in-list (problem-universe kk))]
+                  [j (in-naturals)]
+                  #:when (= i j))
+        u))
+      (unbound-atom kk i)))
+
+(define (index->atom* kk i*)
+  (for/list ([i (in-list i*)])
+    (index->atom kk i)))
+
+;; Convert a problem spec. to SAT
+(define (problem->sat kk)
+  ;; kodkod->bool
+  ;; symmetry-break
+  ;; bool->cnf
+  ;; model/bool->model/kodkod
+  (void))
+
+;; Turn a relational formula to boolean logic
+(define (problem->bool kk)
+  (void))
+
+;; Break symmetries
+(define (break-symmetries bool)
+  (void))
+
+
+;; Transform boolean formula to conjunctive normal form
+(define (bool->cnf bool)
+  (void))
+
+;; Convert boolean model to a model of the original problem
+;; TODO is a model different from a formula?
+(define (bool->kodkod bool)
+  (void))
+
