@@ -90,6 +90,18 @@
 ;; TODO ignores the conditions from { tuple+ } | {}+
 ;; (define-type Constant (Setof Tuple))
 
+(define (tuple=? x* y*)
+  (let ([x*-nil (null? x*)]
+        [y*-nil (null? y*)])
+    (cond
+     [(and x*-nil y*-nil)
+      #t]
+     [(or x*-nil y*-nil)
+      #f]
+     [else
+      (and (symbol=? (car x*) (car y*))
+           (tuple=? (cdr x*) (cdr y*)))])))
+
 (define (make-constant . tuple*)
   (list->set tuple*))
 
@@ -148,10 +160,13 @@
 
 ;; (define-type Binding (HashTable Symbol Constant))
 
-(define (lookup b v)
+(define (env-init)
+  (hasheq))
+
+(define (env-lookup b v)
   (hash-ref b v (lambda () (raise-user-error 'lookup))))
 
-(define (update b v s)
+(define (env-update b v s)
   (hash-set b v s))
 
 (define ⊕ update) ;; \oplus
@@ -173,7 +188,7 @@
 
 ;; (: R (-> relBound Binding Boolean))
 (define (R r b)
-  (let ([bv (lookup b (relBound-id r))])
+  (let ([bv (env-lookup b (relBound-id r))])
     (and
       (subset? (relBound-lo* r) bv)
       (subset? bv (relBound-hi* r)))))
@@ -216,7 +231,7 @@
             [v (varDecl-v vd)]
             [e (varDecl-e vd)])
        (for/and ([s (in-list (E e b))])
-         (F (forall vd* f) (update b v s)))))]
+         (F (forall vd* f) (env-update b v s)))))]
    [(exists vd* f)
     (and
      (not (null? vd*))
@@ -225,13 +240,13 @@
             [v (varDecl-v vd)]
             [e (varDecl-e vd)])
        (for/or ([s (in-list (E e b))])
-         (F (exists vd* f) (update b v s)))))]))
+         (F (exists vd* f) (env-update b v s)))))]))
 
 ;; (: E (-> Expr Binding Constant))
 (define (E e b)
   (match e
    [(var v)
-    (lookup b v)]
+    (env-lookup b v)]
    [(transpose e)
     (map reverse (E e b))]
    [(closure e)
@@ -287,6 +302,12 @@
 (define (xor a b)
   (or (and a (not b))
       (and (not a) b)))
+
+(define (eq?* x*)
+  (or (null? x*)
+      (let ([x (car x*)])
+        (for/and ([y (in-list (cdr x*))])
+          (eq? x y)))))
 
 ;; =============================================================================
 ;; === Parsing
@@ -473,7 +494,36 @@
   (void))
 
 ;; =============================================================================
+;; === Bits / Booleans
+
+(struct bool () #:transparent)
+
+(define-syntax-rule (define-bool* [id e] ...)
+  (begin (struct id bool e #:transparent) ...))
+
+;; TODO unwrap these?
+(define-bool*
+  (bzero ())   ;; 0
+  (bone ())    ;; 1
+  (bvar (v))   ;; identifier
+  (bneg (b))
+  (band (b0 b1))
+  (bor (b0 b1))
+  (bif/else (b0 b1 b2)))
+
+(define-syntax-rule (big-bor for-clause for-body)
+  (for/fold ([acc (bzero)])
+            for-clause
+    (bor acc for-body)))
+
+(define-syntax-rule (big-band for-clause for-body)
+  (for/fold ([acc (bone)])
+            for-clause
+    (band acc for-body)))
+
+;; =============================================================================
 ;; === Bit Matrix
+
 ;; Model relations as matrices of boolean values
 ;;
 ;; TODO best representation?
@@ -482,32 +532,232 @@
 ;; - integer representation (native bitstrings)
 ;; - vector library (track trivial bounds?)
 ;; - function
+;; - USE EMINA'S FOR NOW
 
-;(provide
-;  relBound->matrix
-;)
+(struct bit-matrix (
+  unsafe-num-columns     ;; Natural
+  unsafe-num-dimensions  ;; Natural
+  unsafe-proc            ;; (-> idx bool)
+) #:transparent )
 
-(define (relBound->matrix kk rb)
-  (bit-matrix
+;; M
+;; First arg = integer, s raised to the d
+;; 2nd arg = (idx -> bool) function
+(define (procedure->bit-matrix cols dim f)
+  (unless (procedure? f)
+    ;; TODO use contract
+    (raise-user-error 'bit-matrix "Can only make matrix from procedures"))
+  ;; Cache needs abstraction, not sure how to implement now.
+  ;; What is a matrix anyway? Just a function ?
+  (bit-matrix cols dim f))
+
+(define (tuple->bit-matrix cols dim x*)
+  (define (ref y*)
+    (if (tuple=? x* y*)
+      (bone)
+      (bzero)))
+  (procedure->bit-matrix cols dim ref))
+
+;; Set of all indices in M
+;; ⦇ ⦈
+(define (bit-matrix-index* M)
+  'todo)
+
+(define-syntax-rule (in-indexes m)
+  (in-list (bit-matrix-index* M)))
+
+;; Size of `dimension-size^(# dimensions)`
+;; ⟦ ⟧
+(define (bit-matrix-size M)
+  (expt (bit-matrix-s M)
+        (bit-matrix-d M)))
+
+(define bit-matrix-s
+  bit-matrix-unsafe-num-columns)
+
+(define bit-matrix-d
+  bit-matrix-unsafe-num-dimensions)
+
+;; [ ]
+(define (bit-matrix-ref M x*)
+  ((bit-matrix-unsafe-proc M) x*))
+
+(define (bit-matrix-transpose M)
+  (define f (bit-matrix-unsafe-proc M))
+  (bit-matrix (bit-matrix-size M)
+    (lambda (x) (bneg (f x)))))
+
+;; -----------------------------------------------------------------------------
+
+;; =============================================================================
+;; === Problem -> Matrix Translation
+
+(define (translate-problem kk)
+  (define u (problem-universe kk))
+  (define rb* (problem-bound* kk))
+  (define f* (problem-formula* kk))
+  (when (null? f*)
+    (raise-user-error 'translate-problem "Cannot translate problem with no formulas"))
+  (translate-formula
+    (for/fold ([acc (car f*)]
+               [f (in-list (cdr f*))])
+      (wedge acc f))
+    (for/fold ([env (env-init)])
+              ([rb (in-list rb*)])
+      (env-update env (relBound-id rb) (translate-relBound rb u)))))
+
+(define (translate-relBound rb u)
+  (make-bit-matrix
+    (expt (length u) (relBound-arity rb))
     (lambda (a*)
       (unless (= (length a*) (relBound-arity rb))
         (raise-user-error 'matrix "Expected ~a elements, got ~a" arity a*))
       (let ([a* (if (atom?* a*) a* (index->atom* a*))])
         (cond
          [(set-member? (relBound-lo* rb) a*)
-          1]
+          (bone)]
          [(set-member? (relBound-hi* rb) a*)
-          (\Nu v a*)] ;; TODO
+          (translate-tuple (relBound-id rb) a*)]
          [else
-          0])))))
+          (bzero)])))))
 
-(define (bit-matrix f)
-  (unless (procedure? f)
-    (raise-user-error 'bit-matrix "Can only make matrix from procedures"))
-  ;; Cache needs abstraction, not sure how to implement now.
-  ;; What is a matrix anyway? Just a function ?
-  (void))
+;; TODO would be simpler if variables were not symbolic
+;;  and I could re-use racket's booleans
+(define (translate-formula f env)
+  (match f
+   [(no p)
+    (bneg (translate-formula (some p)) env)]
+   [(lone p)
+    (bor (translate-formula (no p) env)
+         (translate-formula (one p) env))]
+   [(one p)
+    (let ([m (translate-expr p env)])
+      (big-bor ([x* (in-indexes m)])
+        (band (bit-matrix-ref m x*)
+              (big-band ([y* (in-indexes m)]
+                         #:when (not (tuple=? x* y*)))
+                (bneg (bit-matrix-ref m y*)))))))]
+   [(some p)
+    (let ([m (translate-expr p env)])
+      (big-bor ([x* (in-indexes m)])
+        (bit-matrix-ref m x*)))]
+   [(subset e0 e1)
+    (let ([m (bor (bneg (translate-expr p e))
+                  (translate-expr q e))])
+      (big-band ([x* (in-indexes m)])
+        (bit-matrix-ref m x*)))]
+   [(equal e0 e1)
+    (band (translate-formula (subset e0 e1) env)
+          (translate-formula (subset e1 e0) env))]
+   [(neg f)
+    (bneg (translate-formula f env))]
+   [(wedge f0 f1)
+    (band (translate-formula f0 env)
+          (translate-formula f1 env))]
+   [(vee f0 f1)
+    (bor (translate-formula f0 env)
+         (translate-formula f1 env))]
+   [(implies f0 f1)
+    (bor (bneg (translate-formula f0 env))
+         (translate-formula f1 env))]
+   [(iff f0 f1)
+    (let ([r0 (translate-formula f0 env)]
+          [r1 (translate-formula f1 env)])
+      (bor (band r0 r1)
+           (band (bneg r0) (bneg r1))))]
+   [(forall (cons (varDecl v e) vd*) f)
+    (let ([m (translate-expr e env)])
+      (big-band ([x* (in-indexes m)])
+        (bor (bneg (bit-matrix-ref m x*))
+             (translate-formula
+               (forall vd* f)
+               (⊕ env v (tuple->bit-matrix (bit-matrix-size m) x*))))))]
+   [(forall vd* e)
+    (raise-user-error 'translate-formula "Need at least one variable bound in ~a\n" vd*)]
+   [(exists (cons (varDecl v e) vd*) f)
+    (let ([m (translate-expr e env)])
+      (big-bor ([x* (in-indexes m)])
+        (band (bit-matrix-ref m x*)
+              (translate-formula
+                (forall vd* f)
+                (⊕ env v (tuple->bit-matrix (bit-matrix-size m) x*))))))]
+   [(exists vd* f)
+    (raise-user-error 'translate-formula "Need at least one variable bound in ~a\n" vd*)]
+))
 
+(define (translate-expr expr env)
+  (match expr
+   [(var v)
+    (env-lookup env v)]
+   [(transpose e)
+    (bit-matrix-transpose (E e b))]
+   [(closure p)
+    (define m (translate-expr p env))
+    (define s (bit-matrix-s m))
+    (define (sq x i)
+      (if (= i s)
+        x
+        (let ([y (sq x (* i 2))])
+          ;; TODO real formula is `y \/ y * y`
+          ;; boolean join? defined on matrices?
+          (band (bor y y) y))))
+    (sq m 1)]
+   [(refl e)
+    (define m (translate-expr p e))
+    (define size (bit-matrix-size m))
+    (define (ref a*)
+      (if (eq?* a*)
+        (bone)
+        (bzero)))
+    (bor m (bit-matrix size ref))]
+   [(union p q)
+    (bor (translate-expr p env)
+         (translate-expr q env))]
+   [(intersection p q)
+    (band (translate-expr p env)
+          (translate-expr q env))]
+   [(difference p q)
+    (band (translate-expr p env)
+          (bneg (translate-expr q env)))]
+   [(join p q)
+    (bjoin (translate-expr p env)
+           (translate-expr q env))]
+   [(product p q)
+    (bproduct (translate-expr p env)
+              (translate-expr q env))]
+   [(if/else f p q)
+    (define mp (translate-expr p env))
+    (define mq (translate-expr q env))
+    (define (ref x*)
+      (bif/else (translate-formula f env)
+                (bit-matrix-ref mp)
+                (bit-matrix-ref mq)))
+    (procedure->bit-matrix (bit-matrix-s mp) (bit-matrix-d mp) ref)]
+   [(comprehension (cons (varDecl v e) vd*) f)
+    (define m1 (translate-expr e env))
+    (define s (bit-matrix-s m1))
+    (define d (bit-matrix-d m1))
+    (define n (+ 1 (length vd*)))
+    (procedure->bit-matrix s d
+      (lambda (i*)
+        (unless (= (length i*) n)
+          (raise-user-error 'translate-expr:comprehension "Expected ~a-tuple, got ~a" n i*))
+        (define-values (env+ acc)
+          (for/fold ([env+ (⊕ env v (tuple->bit-matrix s d (car i*)))]
+                     [acc (bit-matrix-ref m1 (car i*))])
+                    ([i (in-list (cdr i*))]
+                     [vd (in-list vd*)])
+            (match-define (varDecl v e) vd)
+            (define m (translate-expr e env+))
+            (values (⊕ env+ v (tuple->bit-matrix s d i))
+                    (band m acc))))
+        (band acc (translate-formula f env+)))))]
+   [(comprehension vd* f)
+    (raise-user-error 'translate-expr "Need varDecl in ~aν" expr)]))
+
+;; V(v, a*) = boolVar
+(define (translate-tuple v a*)
+  (raise-user-error 'translate-tuple "not implemented"))
 
 ;; =============================================================================
 ;; === Problem -> SAT
