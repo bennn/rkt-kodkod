@@ -1,6 +1,9 @@
 #lang kodkod
 
-;; Adapted from KodKod figure 4-1
+;; Overconstrained ist specification
+;; KodKod figure 4-1
+
+;; TODO lots of redundancy in the variable decls
 
 ;; -----------------------------------------------------------------------------
 (universe
@@ -65,7 +68,7 @@
 
   (cdr ⊆ (Cons → List))
   (∀ ((a : Cons)) ∣ (one (a ∙ cdr)))
-  (∀ ((a : List)) ∣ (∃ ([e : Nil]) ∣ (e ⊆ (a ∙ (* cdr)))))
+  (∀ ((a : List)) ∣ (∃ ([e : Nil]) ∣ (e ⊆ (a ∙ (^ cdr)))))
 
   (equivTo ⊆ (List → List))
   (∀ ((a : List) (b : List)) ∣ ((a ⊆ (b ∙ equivTo)) ⇔ (∧ (= (a ∙ car) (b ∙ car))
@@ -79,3 +82,4 @@
                                                         ((a ∙ cdr) ⊆ ((b ∙ cdr) ∙ prefixes)))))
                                                         ;; ⊆ works? Should be ∈
 )
+
