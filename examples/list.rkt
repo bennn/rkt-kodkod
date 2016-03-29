@@ -1,6 +1,6 @@
 #lang kodkod
 
-;; Adapted from KodKod figure 4-1
+;; Adapted from Kodkod figure 4-1
 
 ;; -----------------------------------------------------------------------------
 (universe

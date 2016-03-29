@@ -1,5 +1,5 @@
 #lang scribble/manual
 
-@title{KodKod}
+@title{Kodkod}
 
 Nothing to see here

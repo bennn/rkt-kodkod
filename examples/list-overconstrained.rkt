@@ -1,7 +1,7 @@
 #lang kodkod
 
 ;; Overconstrained ist specification
-;; KodKod figure 4-1
+;; Kodkod figure 4-1
 
 ;; TODO lots of redundancy in the variable decls
 
