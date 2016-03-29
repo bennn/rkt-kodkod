@@ -1,7 +1,7 @@
 #lang kodkod
 
 ;; Toy filesystem
-;; KodKod figure 2.2
+;; KodKod figure 2-2
 
 ;; -----------------------------------------------------------------------------
 {universe
