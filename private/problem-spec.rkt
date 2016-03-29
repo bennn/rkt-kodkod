@@ -65,11 +65,10 @@
   formula* ;; (Listof Formula)
 ) #:transparent )
 
-;; -----------------------------------------------------------------------------
 ;; universe = listof symbol = listof atom
 
 (define (make-universe sym*)
-  sym*)
+  (list->set sym*))
 
 ;; -----------------------------------------------------------------------------
 
@@ -92,6 +91,16 @@
     (internal-error 'make-relBound "Bad argument 'lo*' = ~a\n" lo*))
   (relBound id (length (car lo*)) lo* hi*))
 
+(define (relBound-fvs rb)
+  (set-union
+    (constant-fvs (relBound-lo* rb))
+    (constant-fvs (relBound-hi* rb))))
+
+(define (relBound*-bvs rb*)
+  (for/fold ([acc (set)])
+            ([rb (in-list rb*)])
+    (set-add acc (relBound-id rb))))
+
 ;; -----------------------------------------------------------------------------
 
 ;; TODO ignores the conditions from { tuple+ } | {}+
@@ -113,6 +122,11 @@
 
 (define (make-constant . tuple*)
   (list->set tuple*))
+
+(define (constant-fvs c)
+  (for*/set ([a* (in-set c)]
+             [a (in-list a*)])
+    a))
 
 (define (constant-arity c)
   (length (set-first c)))
@@ -152,13 +166,158 @@
   (transpose (e))        ;; ~
   (closure (e))          ;; ^
   (refl (e))             ;; *
-  (union (e1 e2))        ;; \cup
-  (intersection (e1 e2)) ;; \cap
-  (difference  (e1 e2))  ;; \setminus
-  (join  (e1 e2))        ;; .
-  (product (e1 e2))      ;; \rightarrow
-  (if/else (f e1 e2))    ;; f ? e1 : e2
+  (union (e0 e1))        ;; \cup
+  (intersection (e0 e1)) ;; \cap
+  (difference  (e0 e1))  ;; \setminus
+  (join  (e0 e1))        ;; .
+  (product (e0 e1))      ;; \rightarrow
+  (if/else (f e0 e1))    ;; f ? e1 : e2
   (comprehension (v* f)))     ;; { v* | f }
+
+(define (formula-fvs f)
+  (match f
+   [(no e)
+    (expr-fvs e)]
+   [(lone e)
+    (expr-fvs e)]
+   [(one e)
+    (expr-fvs e)]
+   [(some e)
+    (expr-fvs e)]
+   [(subset e0 e1)
+    (set-union (expr-fvs e0) (expr-fvs e1))]
+   [(equal e0 e1)
+    (set-union (expr-fvs e0) (expr-fvs e1))]
+   [(neg f)
+    (formula-fvs f)]
+   [(wedge f0 f1)
+    (set-union (formula-fvs f0) (formula-fvs f1))]
+   [(vee f0 f1)
+    (set-union (formula-fvs f0) (formula-fvs f1))]
+   [(implies f0 f1)
+    (set-union (formula-fvs f0) (formula-fvs f1))]
+   [(iff f0 f1)
+    (set-union (formula-fvs f0) (formula-fvs f1))]
+   [(forall v* f)
+    (set-union
+      (varDecl*-fvs v*)
+      (set-subtract (formula-fvs f) (varDecl*-bvs v*)))]
+   [(exists v* f)
+    (set-union
+      (varDecl*-fvs v*)
+      (set-subtract (formula-fvs f) (varDecl*-bvs v*)))]))
+
+(define (expr-fvs e)
+  (match e
+   [(? var? (app var-v v))
+    (set v)]
+   [(transpose e)
+    (expr-fvs e)]
+   [(closure e)
+    (expr-fvs e)]
+   [(refl e)
+    (expr-fvs e)]
+   [(union e0 e1)
+    (set-union (expr-fvs e0) (expr-fvs e1))]
+   [(intersection e0 e1)
+    (set-union (expr-fvs e0) (expr-fvs e1))]
+   [(difference e0 e1)
+    (set-union (expr-fvs e0) (expr-fvs e1))]
+   [(join e0 e1)
+    (set-union (expr-fvs e0) (expr-fvs e1))]
+   [(product e0 e1)
+    (set-union (expr-fvs e0) (expr-fvs e1))]
+   [(if/else f e0 e1)
+    (set-union (formula-fvs f) (expr-fvs e0) (expr-fvs e1))]
+   [(comprehension v* f)
+    (set-union
+      (varDecl*-fvs v*)
+      (set-subtract (formula-fvs f) (varDecl*-bvs v*)))]))
+
+;; Build a set of bound variables on the way DOWN,
+;;  return the set only when finding a variable in `v`.
+;; Otherwise return the empty set.
+(define (formula-bvs f [bvs (set)] #:over v*)
+  (let loop ([f f]  [bvs bvs])
+    (match f
+     [(no e)
+      (expr-bvs e bvs #:over v*)]
+     [(lone e)
+      (expr-bvs e bvs #:over v*)]
+     [(one e)
+      (expr-bvs e bvs #:over v*)]
+     [(some e)
+      (expr-bvs e bvs #:over v*)]
+     [(subset e0 e1)
+      (set-union ;; Losing path precision, but whatever
+        (expr-bvs e0 bvs #:over v*)
+        (expr-bvs e1 bvs #:over v*))]
+     [(equal e0 e1)
+      (set-union
+        (expr-bvs e0 bvs #:over v*)
+        (expr-bvs e1 bvs #:over v*))]
+     [(neg f)
+      (loop f bvs)]
+     [(wedge f0 f1)
+      (set-union
+        (loop f0 bvs)
+        (loop f1 bvs))]
+     [(vee f0 f1)
+      (set-union
+        (loop f0 bvs)
+        (loop f1 bvs))]
+     [(implies f0 f1)
+      (set-union
+        (loop f0 bvs)
+        (loop f1 bvs))]
+     [(iff f0 f1)
+      (set-union
+        (loop f0 bvs)
+        (loop f1 bvs))]
+     [(forall v* f)
+      (loop f (set-union bvs (varDecl*-bvs v*)))]
+     [(exists v* f)
+      (loop f (set-union bvs (varDecl*-bvs v*)))])))
+
+(define (expr-bvs e bvs #:over v*)
+  (let loop ([e e]  [bvs bvs])
+    (match e
+     [(var v)
+      (if (set-member? v* v)
+        bvs
+        (set))]
+     [(transpose e)
+      (loop e bvs #:over v*)]
+     [(closure e)
+      (loop e bvs #:over v*)]
+     [(refl e)
+      (loop e bvs #:over v*)]
+     [(union e0 e1)
+      (set-union
+        (loop e0 bvs)
+        (loop e1 bvs))]
+     [(intersection e0 e1)
+      (set-union
+        (loop e0 bvs)
+        (loop e1 bvs))]
+     [(join e0 e1)
+      (set-union
+        (loop e0 bvs)
+        (loop e1 bvs))]
+     [(product e0 e1)
+      (set-union
+        (loop e0 bvs)
+        (loop e1 bvs))]
+     [(if/else f e0 e1)
+      (set-union
+        (formula-fvs f bvs #:over v*)
+        (loop e0 bvs)
+        (loop e1 bvs))]
+     [(comprehension v* f)
+      (apply set-union
+        (formula-fvs f bvs #:over v*)
+        (for/list ([vd (in-list v*)])
+          (loop (varDecl-e vd) bvs)))])))
 
 ;; -----------------------------------------------------------------------------
 ;; varDecl
@@ -171,6 +330,14 @@
   #:methods gen:custom-write
   [(define write-proc write-varDecl)])
 
+(define (varDecl*-fvs vd*)
+  (for/fold ([acc (set)])
+            ([vd (in-list vd*)])
+    (set-union acc (expr-fvs (varDecl-e vd)))))
+
+(define (varDecl*-bvs vd*)
+  (for/set ([vd (in-list vd*)])
+    (varDecl-v vd)))
 
 ;; -----------------------------------------------------------------------------
 ;; Bindings
@@ -463,7 +630,7 @@
           #:datum-literals (universe var fuck)
           [(universe x*:id ...)
            ;; It always feels bad throwing away lexical information
-           (set-box! U (syntax->datum #'(x* ...)))]
+           (set-box! U (make-universe (syntax->datum #'(x* ...))))]
           [(var e* ...)
            (set-box!/parse B* relBound# (syntax-e #'(e* ...)) #:src source-path)]
           [(formula e* ...)
@@ -531,10 +698,49 @@
 ;; =============================================================================
 ;; === Linting / Typechecking
 
+;; TODO need to give source locations in error messages
+
+(require
+  (only-in levenshtein string-levenshtein))
+
+(define *EDIT-DISTANCE* (make-parameter 2))
+
+;; (-> Symbol (Setof Symbol) (U #f Symbol))
+(define (suggest-var v U)
+  (define v-str (symbol->string v))
+  (define dist (*EDIT-DISTANCE*))
+  (for/first ([u (in-set U)]
+              #:when (<= (string-levenshtein v-str (symbol->string u)) dist))
+    u))
+
+;; (-> (U #f Symbol) String)
+(define (format-suggestion u)
+  (if u
+    (format " Maybe you meant '~a'?" u)
+    ""))
+
+(define-syntax-rule (unbound-variable-error U v)
+  (raise-user-error 'kodkod:lint "Variable '~a' is unbound in environment ~a.~a"
+    v U (format-suggestion (suggest-var v U))))
+
 (define (lint-problem kk)
   ;; TODO
   ;; - no unbound variables
   ;; -  .;...
+  (lint-variables kk)
+  (void))
+
+(define (lint-variables kk)
+  (define U (problem-universe kk))
+  (for ([rb (in-list (problem-bound* kk))])
+    (for ([v (in-set (relBound-fvs rb))])
+      (unless (set-member? U v)
+        (unbound-variable-error U v))))
+  (define U+V (set-union U (relBound*-bvs (problem-bound* kk))))
+  (for ([f (in-list (problem-formula* kk))])
+    (for ([v (in-set (formula-fvs f))])
+      (unless (set-member? U+V v)
+        (unbound-variable-error (set-union U+V (formula-bvs f #:over (set v))) v))))
   (void))
 
 ;;; =============================================================================
