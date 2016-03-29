@@ -69,15 +69,30 @@
 
 ;; kodkod = problem
 (struct problem (
-  universe ;; (Listof Symbol)
+  universe ;; (Vectorof Symbol)
   bound*   ;; (Listof Bound)
   formula* ;; (Listof Formula)
 ) #:transparent )
 
-;; universe = listof symbol = listof atom
+;; -----------------------------------------------------------------------------
+;; (define-type Universe (Vectorof Symbol))
 
 (define (make-universe sym*)
-  (list->set sym*))
+  (for/vector ([x sym*])
+    x))
+
+(define (universe-contains? U a)
+  (for/or ([u (in-vector U)])
+    (atom=? a u)))
+
+(define (universe-index U a)
+  (for/first ([u (in-vector U)]
+              [i (in-naturals)]
+              #:when (atom=? a u))
+    i))
+
+(define universe-size
+  vector-length)
 
 ;; -----------------------------------------------------------------------------
 
@@ -117,10 +132,11 @@
      [(or x*-nil y*-nil)
       #f]
      [else
-      (and (symbol=? (car x*) (car y*))
+      (and (atom=? (car x*) (car y*))
            (tuple=? (cdr x*) (cdr y*)))])))
 
 (define symbol=? eq?)
+(define atom=? eq?)
 
 (define (make-constant . tuple*)
   (list->set tuple*))
