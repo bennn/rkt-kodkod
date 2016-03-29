@@ -1,10 +1,17 @@
 #lang racket/base
+(module+ test (require rackunit))
 
 ;; TODO
 ;; - stop ignoring syntax information?
 ;; - compile forall/exists to lambdas, re-use Racket's identifier management
 ;; - atoms in tuples must be ordered by universe
 ;; - sparse tree representation (2.2.2)
+
+;; Emina TODO
+;; - better bitvector arithmetic
+;; - better inductive definitions
+;; - special handling for simple fragments of input language
+;; - heuristics for good variable / constraint ordering
 
 ;; TYPO
 ;; - Fig2-3 : missing ∙ × definitions
@@ -72,10 +79,6 @@
 
 ;; -----------------------------------------------------------------------------
 
-;; TODO
-;; - give vars explicit arity? can just infer from the inputs
-;; - can lo* / hi* be empty?
-
 (struct relBound (
   id  ;; Symbol
   arity ;; Natural
@@ -85,11 +88,10 @@
 )
 
 (define (make-relBound id lo* hi*)
-  ;; TODO check that all elements of lo* and hi* have the same length.
-  ;; length can be anything, but needs to be uniform
-  (when (null? lo*)
-    (internal-error 'make-relBound "Bad argument 'lo*' = ~a\n" lo*))
-  (relBound id (length (car lo*)) lo* hi*))
+  (if (and (null? lo*) (null? hi*))
+    (relBound id 0 lo* hi*)
+    (let ([arity (if (null? lo*) (length (car hi*)) (length (car lo*)))])
+      (relBound id arity lo* hi*))))
 
 (define (relBound-fvs rb)
   (set-union
@@ -102,8 +104,6 @@
     (set-add acc (relBound-id rb))))
 
 ;; -----------------------------------------------------------------------------
-
-;; TODO ignores the conditions from { tuple+ } | {}+
 ;; (define-type Constant (Setof Tuple))
 
 (define (tuple=? x* y*)
@@ -209,7 +209,7 @@
 
 (define (expr-fvs e)
   (match e
-   [(? var? (app var-v v))
+   [(? var? (app var-v v)) ;; ha ha
     (set v)]
    [(transpose e)
     (expr-fvs e)]
@@ -356,7 +356,8 @@
 (define ⊕ env-update) ;; \oplus
 
 ;; -----------------------------------------------------------------------------
-;; ---
+;; --- Semantics
+;; Currently unused. What am I supposed to do with this?
 
 ;; Kinda tempting to do this as a syntax-parse, but we don't want
 ;;  to keep using syntactic representations. Think efficiency.
@@ -465,16 +466,11 @@
                [e (varDecl-e vd)]
                [s* (E e b)])
           (values (cons s* s**) (⊕ b v s*)))))
-    (for/set ([x (in-product (reverse s**-rev) 2)])
+    (for/set ([x (cartesian-product (reverse s**-rev))])
       x)]))
 
 ;; =============================================================================
 ;; === Set operations
-
-(define (in-product x* n)
-  (unless (= n 2)
-    (raise-user-error 'in-product "Not implemented unless n=2"))
-  (cartesian-product x*))
 
 ;; For now, just handle pairs
 ;; ??? are all the output tuples the same length?
