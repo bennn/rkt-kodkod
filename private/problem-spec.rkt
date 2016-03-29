@@ -6,6 +6,8 @@
 ;; - compile forall/exists to lambdas, re-use Racket's identifier management
 ;; - atoms in tuples must be ordered by universe
 ;; - sparse tree representation (2.2.2)
+;; - what is the SAT solver format?
+;; - how to open a pipe to solver?
 
 ;; Emina TODO
 ;; - better bitvector arithmetic
@@ -1232,6 +1234,82 @@
 ;; TODO is a model different from a formula?
 (define (bool->kodkod bool)
   (void))
+
+;; =============================================================================
+;; === SAT Solvers
+
+(require racket/class)
+
+(define *SOLVER-TIMEOUT* (make-parameter 300)) ;; Seconds
+
+(define solver%
+  (class* object% (printable<%>)
+    (super-new)
+    (init-field
+     id ;; String
+    )
+    (field
+     [num-clauses 0] ;; Natural
+     [num-vars    0] ;; Natural
+     [solver     #f] ;; 
+     [val*       #f] ;; (U #f (Vectorof TODO)), assign vars to values
+    )
+
+    ;; -------------------------------------------------------------------------
+    ;; --- printable<%> interface
+
+    (define/public (custom-print port depth)
+      (send this custom-display port))
+
+    (define/public (custom-write port)
+      (send this custom-display port))
+
+    (define/public (custom-display port)
+      (fprintf port "#<solver:~a>" (get-field id this)))
+
+    ;; -----------------------------------------------------------------------------
+    ;; ---
+
+    ;; TODO n>=0
+    (define/public (add-variables n)
+      (set-field! num-vars this (+ n (get-field num-vars this))))
+
+    ;; (-> (Sequenceof Natural) Boolean)
+    (define/public (add-clause c)
+      'todo)
+
+    (define/public (get-clauses)
+      (get-field num-clauses this))
+
+    (define/public (get-variables)
+      (get-field num-vars this))
+
+    ;; TODO 0 <= i < this.vars
+    (define/public (get-value i)
+      (unless (< i (send this get-variables))
+        (raise-user-error 'solver "Unbound variable ~a in solver ~a" i this))
+      (let ([v* (get-field val* this)])
+        (and v*
+          (vector-ref v* i))))
+
+    (define/public (solve)
+      ;; Open a subprocess, wait until timeout, kill if necessary
+      'TODO)
+
+    ;; Frees the memory used by this solver.
+    ;; Gross!
+    (define/public (free)
+      'TODO)
+))
+
+;; -----------------------------------------------------------------------------
+
+(define glucose%
+  (class solver%
+    (super-new)
+
+    ; TODO
+))
 
 ;; =============================================================================
 ;; === Minimal Core Extraction (Ch. 4)
