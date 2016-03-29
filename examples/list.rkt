@@ -68,7 +68,7 @@
   (∀ ((a : List)) ∣ (∃ ([e : Nil]) ∣ (e ⊆ (a ∙ (* cdr)))))
 
   (equivTo ⊆ (List → List))
-  (∀ ((a : List) (b : List)) ∣ ((a ⊆ (b ∙ equivTo)) ⇔ (∧ (= (a ∙ car) (b ∙ car))
+  (∀ ((a b : List)) ∣ ((a ⊆ (b ∙ equivTo)) ⇔ (∧ (= (a ∙ car) (b ∙ car))
                                                        (= ((a ∙ cdr) ∙ equivTo)
                                                           ((b ∙ cdr) ∙ equivTo)))))
 

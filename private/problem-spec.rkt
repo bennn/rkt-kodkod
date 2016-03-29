@@ -161,10 +161,15 @@
   (comprehension (v* f)))     ;; { v* | f }
 
 ;; -----------------------------------------------------------------------------
-;; varDecls = (Listof (Pairof Var Expr))
+;; varDecl
+
+(define (write-varDecl vd port mode)
+  (fprintf port "[~a : ~a]" (varDecl-v vd) (varDecl-e vd)))
 
 ;; (v : e)
-(struct varDecl (v e))
+(struct varDecl (v e)
+  #:methods gen:custom-write
+  [(define write-proc write-varDecl)])
 
 
 ;; -----------------------------------------------------------------------------
@@ -433,14 +438,15 @@
 (define (varDecls# stx)
   (syntax-parse stx
    #:datum-literals (:)
-   ;; TODO allow (a b : T) ...
-   [((v*:id : e*) ...)
-    (define vd*
-      (for/list ([v (in-list (syntax-e #'(v* ...)))]
-                 [e (in-list (syntax-e #'(e* ...)))])
-        (define e+ (expr# e))
-        (and e+ (cons (syntax-e v) e+))))
-    (and (for/and ([vd (in-list vd*)]) vd) vd*)]
+   [((v**:id ... : e*) ...)
+    (for/fold ([acc '()])
+              ([v* (in-list (syntax-e #'((v** ...) ...)))]
+               [e (in-list (syntax-e #'(e* ...)))])
+      (and acc
+        (let ([e+ (expr# e)])
+          (and e+
+            (let ([v+ (for/list ([v (in-list (syntax-e v*))]) (varDecl (syntax-e v) e+))])
+              (append v+ acc))))))]
    [_ #f]))
 
 ;; (-> Input-Port Problem)
