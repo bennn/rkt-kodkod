@@ -792,6 +792,15 @@
             for-clause
     (band acc for-body)))
 
+(define (b-simplify b)
+  'TODO)
+
+;; =============================================================================
+;; === Sparse Sequence (TODO ?)
+
+
+
+
 ;;; =============================================================================
 ;;; === Bit Matrix
 ;
@@ -808,7 +817,7 @@
 ;(struct bit-matrix (
 ;  unsafe-num-columns     ;; Natural
 ;  unsafe-num-dimensions  ;; Natural
-;  unsafe-proc            ;; (-> idx bool)
+;  TODO ;; TODO
 ;) #:transparent )
 ;
 ;;; M
@@ -829,16 +838,80 @@
 ;      (bzero)))
 ;  (procedure->bit-matrix cols dim ref))
 ;
+;(define (bit-matrix-and M . M*)
+;  'todo)
+;
+;(define (bit-matrix-choice b M0 M1)
+;  'todo)
+;
+;(define (bit-matrix-closure)
+;  'todo)
+;
+;(define (bit-matrix-cross M . M*)
+;  'todo)
+;
 ;;; Set of all indices in M
 ;;; ⦇ ⦈
-;(define (bit-matrix-index* M)
+;;; Return all non-#f indices
+;(define (bit-matrix-dense-indices M)
 ;  'todo)
 ;
 ;(define-syntax-rule (in-indexes m)
 ;  (in-list (bit-matrix-index* M)))
 ;
-;;; Size of `dimension-size^(# dimensions)`
-;;; ⟦ ⟧
+;;; Return number of non-#f entries.
+;;; (-> BitMatrix Natural)
+;(define (bit-matrix-density M)
+;  'todo)
+;
+;(define (bit-matrix-difference M . M*)
+;  'todo)
+;
+;(define bit-matrix-dimensions
+;  bit-matrix-unsafe-num-dimensions)
+;
+;(define (bit-matrix-dot M . M*)
+;  'todo)
+;
+;(define (bit-matrix-equal M . M*)
+;  'todo)
+;
+;;; Return formula that at least one value in M is non-#f
+;(define (bit-matrix-lone M)
+;  'todo)
+;
+;(define (bit-matrix-none M)
+;  'todo)
+;
+;(define (bit-matrix-not M)
+;  'todo)
+;
+;(define (bit-matrix-one M)
+;  'todo)
+;
+;(define (bit-matrix-or M . M*)
+;  'todo)
+;
+;(define (bit-matrix-override M0 M1)
+;  'todo)
+;
+;(define (bit-matrix-ref M i)
+;  ((bit-matrix-unsafe-proc M) i))
+;
+;(define (bit-matrix-set M i v)
+;  'todo)
+;
+;(define (bit-matrix-some M)
+;  'todo)
+;
+;(define (bit-matrix-subset M0 M1)
+;  'todo)
+;
+;(define (bit-matrix-transpose M)
+;  'todo) ;; Depends on representation
+;
+;;; --- TODO ---
+;
 ;(define (bit-matrix-size M)
 ;  (expt (bit-matrix-s M)
 ;        (bit-matrix-d M)))
@@ -849,17 +922,6 @@
 ;(define bit-matrix-d
 ;  bit-matrix-unsafe-num-dimensions)
 ;
-;;; [ ]
-;(define (bit-matrix-ref M x*)
-;  ((bit-matrix-unsafe-proc M) x*))
-;
-;(define (bit-matrix-transpose M)
-;  (define f (bit-matrix-unsafe-proc M))
-;  (bit-matrix (bit-matrix-size M)
-;    (lambda (x) (bneg (f x)))))
-;
-;;; -----------------------------------------------------------------------------
-
 ;;; =============================================================================
 ;;; === Problem -> Matrix Translation
 ;
