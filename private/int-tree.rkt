@@ -1,13 +1,22 @@
 #lang racket/base
 
+;; TODO as fallback, can use pfds/red-black-tree
+
 (provide
   make-int-tree
   int-tree-clear
   int-tree-delete
+  int-tree-indices
   int-tree-insert
+  int-tree-max
+  int-tree-min
   int-tree-search
   int-tree-searchGTE
   int-tree-searchLTE
+  ;; ---
+  make-node
+  node->value
+  set-node-value!
 )
 
 ;; =============================================================================
@@ -26,6 +35,7 @@
   left     ;; Node
   parent   ;; Node
   right    ;; Node
+  value    ;; Any
 ) #:transparent
   #:mutable
 )
@@ -33,8 +43,14 @@
 
 ;; -----------------------------------------------------------------------------
 
-(define (make-int-tree c i)
-  (int-tree c (box #f)))
+(define (make-int-tree)
+  (int-tree #t (box #f)))
+
+(define (make-node k v)
+  (node #f k #f #f #f v))
+
+(define node->value
+  node-value)
 
 (define (int-tree-clear I)
   (set-box! (int-tree-root I) #f))
@@ -76,6 +92,16 @@
             (set-node-right! (node-parent z) #f))))))
   (node-free! z))
 
+(define (int-tree-indices I)
+  ;; TODO make lazy, with in-producer
+  (let loop ([n (unbox (int-tree-root I))])
+    (if n
+      (append
+        (loop (node-left n))
+        (list (node-key n))
+        (loop (node-right n)))
+      '())))
+
 (define (int-tree-insert I z)
   (define z-key (node-key z))
   (define y
@@ -96,6 +122,12 @@
         (set-node-left! y z)
         (set-node-right! y z))
       (insert-fixup I z))))
+
+(define (int-tree-min I)
+  (node-min (unbox (int-tree-root I))))
+
+(define (int-tree-max I)
+  (node-max (unbox (int-tree-root I))))
 
 (define (int-tree-search I k)
   (let loop ([n (unbox (int-tree-root I))])
