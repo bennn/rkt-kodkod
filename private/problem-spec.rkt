@@ -65,6 +65,12 @@
 )
 
 ;; =============================================================================
+;; === Parameters
+
+(define *PRINT-INDENT* (make-parameter (make-string 6 #\space)))
+
+
+;; =============================================================================
 ;; === STRUCTS
 
 ;; kodkod = problem
@@ -73,6 +79,12 @@
   bound*   ;; (Listof Bound)
   formula* ;; (Listof Formula)
 ) #:transparent )
+
+(define (format-problem kk)
+  (format "(problem\n  U = ~a\n  B = ~a\n  F = ~a\n)"
+    (format-universe (problem-universe kk))
+    (map format-relBound (problem-bound* kk))
+    (map format-formula (problem-formula* kk))))
 
 ;; -----------------------------------------------------------------------------
 ;; (define-type Universe (Vectorof Symbol))
@@ -94,13 +106,16 @@
 (define universe-size
   vector-length)
 
+(define (format-universe u)
+  u)
+
 ;; -----------------------------------------------------------------------------
 
 (struct relBound (
-  id  ;; Symbol
-  arity ;; Natural
-  lo* ;; Constant
-  hi* ;; Constant
+  id      ;; Symbol
+  arity   ;; Natural
+  lo*     ;; Constant
+  hi*     ;; Constant
 ) #:transparent
 )
 
@@ -120,6 +135,14 @@
             ([rb (in-list rb*)])
     (set-add acc (relBound-id rb))))
 
+(define (format-relBound rb)
+  (format "[~a :~a ~a ~a]\n~a"
+    (relBound-id rb)
+    (relBound-arity rb)
+    (relBound-lo* rb)
+    (relBound-hi* rb)
+    (*PRINT-INDENT*)))
+
 ;; -----------------------------------------------------------------------------
 ;; (define-type Constant (Setof Tuple))
 
@@ -135,10 +158,11 @@
       (and (atom=? (car x*) (car y*))
            (tuple=? (cdr x*) (cdr y*)))])))
 
-(define symbol=? eq?)
-(define atom=? eq?)
+(define atom=?
+  eq?)
 
 (define (make-constant . tuple*)
+  ;; TODO all inputs must be lists of same length
   (list->set tuple*))
 
 (define (constant-fvs c)
@@ -147,7 +171,9 @@
     a))
 
 (define (constant-arity c)
-  (length (set-first c)))
+  (if (set-empty? c)
+    0
+    (length (set-first c))))
 
 ;; -----------------------------------------------------------------------------
 ;; formulas
@@ -171,6 +197,9 @@
   (iff (f0 f1))
   (forall (v* f))
   (exists (v* f)))
+
+(define (format-formula f)
+  (format "~a\n~a" f (*PRINT-INDENT*)))
 
 ;; -----------------------------------------------------------------------------
 
@@ -371,7 +400,8 @@
 (define (env-update b v s)
   (hash-set b v s))
 
-(define ⊕ env-update) ;; \oplus
+(define ⊕ ;; \oplus
+  env-update)
 
 ;; -----------------------------------------------------------------------------
 ;; --- Semantics
@@ -685,31 +715,6 @@
       (input-port->problem ps))))
 
 ;; =============================================================================
-;; === Printing
-
-(define INDENT (make-string 6 #\space))
-
-(define (format-problem kk)
-  (format "(problem\n  U = ~a\n  B = ~a\n  F = ~a\n)"
-    (format-universe (problem-universe kk))
-    (map format-relBound (problem-bound* kk))
-    (map format-formula (problem-formula* kk))))
-
-(define (format-universe u)
-  u)
-
-(define (format-relBound rb)
-  (format "[~a :~a ~a ~a]\n~a"
-    (relBound-id rb)
-    (relBound-arity rb)
-    (relBound-lo* rb)
-    (relBound-hi* rb)
-    INDENT))
-
-(define (format-formula f)
-  (format "~a\n~a" f INDENT))
-
-;; =============================================================================
 ;; === Linting / Typechecking
 
 ;; TODO need to give source locations in error messages
@@ -757,36 +762,36 @@
         (unbound-variable-error (set-union U+V (formula-bvs f #:over (set v))) v))))
   (void))
 
-;;; =============================================================================
-;;; === Bits / Booleans
-;
-;(struct bool () #:transparent)
-;
-;(define-syntax-rule (define-bool* [id e] ...)
-;  (begin (struct id bool e #:transparent) ...))
-;
-;;; TODO unwrap these?
-;(define-bool*
-;  (bzero ())   ;; 0
-;  (bone ())    ;; 1
-;  (bvar (v))   ;; identifier
-;  (bneg (b))
-;  (band (b0 b1))
-;  (bor (b0 b1))
-;  (bjoin (b0 b1)) ;; ∙, dot product
-;  (bproduct (b0 b1)) ;; ×, cross product
-;  (bif/else (b0 b1 b2)))
-;
-;(define-syntax-rule (big-bor for-clause for-body)
-;  (for/fold ([acc (bzero)])
-;            for-clause
-;    (bor acc for-body)))
-;
-;(define-syntax-rule (big-band for-clause for-body)
-;  (for/fold ([acc (bone)])
-;            for-clause
-;    (band acc for-body)))
-;
+;; =============================================================================
+;; === Bits / Booleans
+
+(struct bool () #:transparent)
+
+(define-syntax-rule (define-bool* [id e] ...)
+  (begin (struct id bool e #:transparent) ...))
+
+;; TODO unwrap these?
+(define-bool*
+  (bzero ())   ;; 0 (constant)
+  (bone ())    ;; 1 (constant)
+  (bvar (v))   ;; identifier
+  (bneg (b))
+  (band (b0 b1))
+  (bor (b0 b1))
+  (bjoin (b0 b1)) ;; ∙, dot product
+  (bproduct (b0 b1)) ;; ×, cross product
+  (bif/else (b0 b1 b2)))
+
+(define-syntax-rule (big-bor for-clause for-body)
+  (for/fold ([acc (bzero)])
+            for-clause
+    (bor acc for-body)))
+
+(define-syntax-rule (big-band for-clause for-body)
+  (for/fold ([acc (bone)])
+            for-clause
+    (band acc for-body)))
+
 ;;; =============================================================================
 ;;; === Bit Matrix
 ;
@@ -854,7 +859,7 @@
 ;    (lambda (x) (bneg (f x)))))
 ;
 ;;; -----------------------------------------------------------------------------
-;
+
 ;;; =============================================================================
 ;;; === Problem -> Matrix Translation
 ;
