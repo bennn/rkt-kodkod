@@ -17,7 +17,7 @@
       (raise-user-error 'define-parameter "Invalid parameter name '~a', should be ALL-CAPS with asterisks as the first and last characters." (syntax-e #'name)))
     (syntax/loc stx
       (begin (define name (make-parameter val))
-             (provide (contract-out (name ctc)))))]))
+             (provide (contract-out (name (Parameterof ctc))))))]))
 
 ;; -----------------------------------------------------------------------------
 

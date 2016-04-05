@@ -14,6 +14,7 @@
    [parameter/c Parameterof]
    [sequence/c Sequenceof]
    [string? String]
+   [symbol? Symbol]
    [void? Void]
   )
 
