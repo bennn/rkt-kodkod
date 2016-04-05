@@ -11,7 +11,9 @@
    [box/c Box]
    [integer? Integer]
    [or/c U]
+   [parameter/c Parameterof]
    [sequence/c Sequenceof]
+   [string? String]
    [void? Void]
   )
 
