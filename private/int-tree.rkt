@@ -2,22 +2,60 @@
 
 ;; TODO as fallback, can use pfds/red-black-tree
 
-(provide
-  make-int-tree
-  int-tree-clear
-  int-tree-delete
-  int-tree-indices
-  int-tree-insert
-  int-tree-max
-  int-tree-min
-  int-tree-search
-  int-tree-searchGTE
-  int-tree-searchLTE
+(require kodkod/private/predicates)
+(provide (contract-out
+  [struct int-tree (
+    (color Boolean)
+    (root (Box (U #f int-tree?))))]
+
+  [struct node (
+    ;; MUTABLE
+    (color Boolean)
+    (key Integer)
+    (left node?)
+    (parent node?)
+    (right node?)
+    (value Any))]
+
   ;; ---
-  make-node
-  node->value
-  set-node-value!
-)
+
+  [make-int-tree
+   (-> int-tree?)]
+
+  [make-node
+   (-> Integer Any node?)]
+
+  [int-tree-clear
+   (-> int-tree? Void)]
+
+  [int-tree-delete
+   (-> int-tree? node? Void)]
+
+  [int-tree-indices
+   (-> int-tree? (Sequenceof Integer))]
+
+  [int-tree-insert
+   (-> int-tree? node? Void)]
+
+  [int-tree-max
+   (-> int-tree? Any)]
+
+  [int-tree-min
+   (-> int-tree? Any)]
+
+  [int-tree-search
+   (-> int-tree? node? Any)]
+
+  [int-tree-searchGTE
+   (-> int-tree? node? Any)]
+
+  [int-tree-searchLTE
+   (-> int-tree? node? Any)]
+
+  [node->value
+   (-> node? Any)]
+
+))
 
 ;; =============================================================================
 
@@ -48,6 +86,9 @@
 
 (define (make-node k v)
   (node #f k #f #f #f v))
+
+(define (int-tree-empty? I)
+   (eq? #f (unbox (int-tree-root I))))
 
 (define node->value
   node-value)
@@ -158,7 +199,17 @@
         (define R (node-right n))
         (if R
           (loop R)
-          (right-f R))]))))
+          (right-f n))]))))
+
+(define (list->int-tree x*)
+  (define I (make-int-tree))
+  (for ([x (in-list x*)])
+    (int-tree-insert I (make-node x x)))
+  I)
+
+(define (int-tree->list I)
+  (for/list ([i (int-tree-indices I)])
+    (node->value (int-tree-search I i))))
 
 ;; -----------------------------------------------------------------------------
 
@@ -176,7 +227,7 @@
     (or (node-min (node-left n)) n)))
 
 (define (node-predecessor n)
-  (define l (unbox (node-left n)))
+  (define l (node-left n))
   (if l
     (node-max l)
     (let loop ([n n]
@@ -352,5 +403,121 @@
 (module+ test
   (require rackunit)
 
+  (define digit* (for/list ([i (in-range 10)]) i))
+  (define (digit-tree)
+    (list->int-tree digit*))
+
+  (test-case "make-int-tree"
+    (let ([I (make-int-tree)])
+      (check-true (int-tree? I))
+      (check-true (int-tree-empty? I)))
+  )
+
+  (test-case "int-tree-clear"
+    (let ([I (digit-tree)])
+      (check-false (int-tree-empty? I))
+      (int-tree-clear I)
+      (check-true (int-tree-empty? I)))
+  )
+
+  (test-case "int-tree-delete"
+    (let* ([I (digit-tree)]
+           [d* (cdr digit*)])
+      (int-tree-delete I (int-tree-search I 0))
+      (check-equal? (int-tree->list I) d*)
+      (check-false (int-tree-empty? I))
+      (for ([i (in-list d*)])
+        (int-tree-delete I (int-tree-search I i)))
+      (check-true (int-tree-empty? I))))
+
+  (test-case "int-tree-indices"
+    (let* ([I (digit-tree)]
+           [i* (for/list ([i (int-tree-indices I)]) i)])
+      (check-equal?  i* digit*))
+  )
+
+  (test-case "int-tree-insert"
+    (let* ([I (digit-tree)]
+           [d0 (apply min digit*)]
+           [d9 (apply max digit*)]
+           [d10 (+ 1 d9)])
+      (check-equal? (node->value (int-tree-min I)) d0)
+      (check-equal? (node->value (int-tree-max I)) d9)
+      (check-false (int-tree-search I d10))
+      (int-tree-insert I (make-node d10 d10))
+      (check-equal? (node->value (int-tree-max I)) d10)
+      (check-true (and (int-tree-search I d10) #t)))
+  )
+
+  (test-case "int-tree-max"
+    (let* ([I (digit-tree)])
+      (check-false (int-tree-max (make-int-tree)))
+      (check-equal? (node->value (int-tree-max I)) (apply max digit*)))
+  )
+
+  (test-case "int-tree-min"
+    (let* ([I (digit-tree)])
+      (check-false (int-tree-min (make-int-tree)))
+      (check-equal? (node->value (int-tree-min I)) (apply min digit*)))
+  )
+
+  (test-case "int-tree-search"
+    (let* ([I (digit-tree)]
+           [d (car digit*)]
+           [n1 (int-tree-search I d)]
+           [n2 (int-tree-search I (+ 1 (apply max digit*)))])
+      (check-equal? (node-key n1) d)
+      (check-equal? (node->value n1) d)
+      (check-false n2))
+  )
+
+  (test-case "int-tree-searchGTE"
+    (let* ([I (digit-tree)]
+           [d1 (apply min digit*)]
+           [d0 (- d1 1)]
+           [d2 (+ d1 1)]
+           [d11 (+ d1 (length digit*))]
+           [n1 (node->value (int-tree-searchGTE I d1))]
+           [n0 (node->value (int-tree-searchGTE I d0))]
+           [n2 (node->value (int-tree-searchGTE I d2))]
+           [n11 (int-tree-searchGTE I d11)])
+      (check-equal? n1 0)
+      (check-equal? n0 0)
+      (check-equal? n2 1)
+      (check-equal? n11 #f))
+  )
+
+  (test-case "int-tree-searchLTE"
+    (let* ([I (digit-tree)]
+           [d1 (apply min digit*)]
+           [d0 (- d1 1)]
+           [d2 (+ d1 1)]
+           [d11 (+ d1 (length digit*))]
+           [n1 (node->value (int-tree-searchLTE I d1))]
+           [n0 (int-tree-searchLTE I d0)]
+           [n2 (node->value (int-tree-searchLTE I d2))]
+           [n11 (node->value (int-tree-searchLTE I d11))])
+      (check-equal? n1 0)
+      (check-equal? n0 #f)
+      (check-equal? n2 1)
+      (check-equal? n11 9))
+  )
+
+  (test-case "make-node"
+    (let* ([key 'key]
+           [val 'val]
+           [n (make-node key val)])
+      (check-true (node? n))
+      (check-equal? (node-key n) key)
+      (check-equal? (node-value n) val)
+      (check-equal? (node->value n) val))
+  )
+
+  (test-case "node->value"
+    (let* ([k 536]
+           [v 'value]
+           [n (make-node k v)])
+      (check-equal? (node->value n) v))
+  )
 
 )

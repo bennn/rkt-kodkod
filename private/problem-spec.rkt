@@ -5,9 +5,9 @@
 ;; - stop ignoring syntax information?
 ;; - compile forall/exists to lambdas, re-use Racket's identifier management
 ;; - atoms in tuples must be ordered by universe
-;; - sparse tree representation (2.2.2)
 ;; - what is the SAT solver format?
 ;; - how to open a pipe to solver?
+;; - exit-early bitmatrix optimizations (instead of iterating over whole space)
 
 ;; Emina TODO
 ;; - better bitvector arithmetic
@@ -68,7 +68,6 @@
 ;; === Parameters
 
 (define *PRINT-INDENT* (make-parameter (make-string 6 #\space)))
-
 
 ;; =============================================================================
 ;; === STRUCTS
@@ -778,8 +777,6 @@
   (bneg (b))
   (band (b0 b1))
   (bor (b0 b1))
-  (bjoin (b0 b1)) ;; ∙, dot product
-  (bproduct (b0 b1)) ;; ×, cross product
   (bif/else (b0 b1 b2)))
 
 (define-syntax-rule (big-bor for-clause for-body)
@@ -795,14 +792,9 @@
 (define (b-simplify b)
   'TODO)
 
-;; =============================================================================
-;; === Sparse Sequence (TODO ?)
-
-
-
-
 ;;; =============================================================================
 ;;; === Bit Matrix
+;(require kodkod/private/sparse-sequence)
 ;
 ;;; Model relations as matrices of boolean values
 ;;;
@@ -814,114 +806,177 @@
 ;;; - function
 ;;; - USE EMINA'S FOR NOW
 ;
+;;; Square, boolean matrix.
+;;; Indices are FLAT integers.
 ;(struct bit-matrix (
 ;  unsafe-num-columns     ;; Natural
 ;  unsafe-num-dimensions  ;; Natural
-;  TODO ;; TODO
+;  cell* ;; (Instance sparse-sequence<%>) ; legal to `instance` an interface?
 ;) #:transparent )
 ;
-;;; M
-;;; First arg = integer, s raised to the d
-;;; 2nd arg = (idx -> bool) function
-;(define (procedure->bit-matrix cols dim f)
-;  (unless (procedure? f)
-;    ;; TODO use contract
-;    (raise-user-error 'bit-matrix "Can only make matrix from procedures"))
-;  ;; Cache needs abstraction, not sure how to implement now.
-;  ;; What is a matrix anyway? Just a function ?
-;  (bit-matrix cols dim f))
+;(define-syntax-rule (mask-null v)
+;  (or v (bzero)))
 ;
-;(define (tuple->bit-matrix cols dim x*)
-;  (define (ref y*)
-;    (if (tuple=? x* y*)
-;      (bone)
-;      (bzero)))
-;  (procedure->bit-matrix cols dim ref))
+;;;; M
+;;;; First arg = integer, s raised to the d
+;;;; 2nd arg = (idx -> bool) function
+;;(define (procedure->bit-matrix cols dim f)
+;;  (unless (procedure? f)
+;;    ;; TODO use contract
+;;    (raise-user-error 'bit-matrix "Can only make matrix from procedures"))
+;;  ;; Cache needs abstraction, not sure how to implement now.
+;;  ;; What is a matrix anyway? Just a function ?
+;;  (bit-matrix cols dim f))
+;;
+;;(define (tuple->bit-matrix cols dim x*)
+;;  (define (ref y*)
+;;    (if (tuple=? x* y*)
+;;      (bone)
+;;      (bzero)))
+;;  (procedure->bit-matrix cols dim ref))
 ;
 ;(define (bit-matrix-and M . M*)
-;  'todo)
+;  (bit-matrix-map M
+;    (lambda (i)
+;      (band (bit-matrix-ref M i)
+;        (big-band ([m (in-list M*)])
+;          (bit-matrix-ref m i))))))
 ;
-;(define (bit-matrix-choice b M0 M1)
-;  'todo)
+;;(define (bit-matrix-choice b M0 M1)
+;;  'todo)
 ;
-;(define (bit-matrix-closure)
-;  'todo)
+;(define (bit-matrix-closure M)
+;  ;; nope don't udnerstand dimensions
+;  (raise-user-error 'closure "not implemented"))
 ;
 ;(define (bit-matrix-cross M . M*)
-;  'todo)
+;  ;; TODO error if (null? M*)
+;  (match-define (bit-matrix cols dims cell*) M)
+;  (bit-matrix cols dims
+;    (for/fold ([acc (new tree-sequence%)])
+;              ([M2 (in-list M*)])
+;      (for ([i (in-dense-index* M)])
+;        (define offset (* dims i))
+;        (for ([i2 (in-dense-index* M2)])
+;          (send acc put (+ offset i2)
+;                        (band (bit-matrix-ref M i)
+;                              (bit-matrix-ref M2 i2)))))
+;      acc)))
 ;
 ;;; Set of all indices in M
 ;;; ⦇ ⦈
 ;;; Return all non-#f indices
-;(define (bit-matrix-dense-indices M)
-;  'todo)
+;(define (bit-matrix-dense-index* M)
+;  (send (bit-matrix-cell* M) indices))
 ;
-;(define-syntax-rule (in-indexes m)
+;(define-syntax-rule (in-dense-index* M)
+;  (in-list (bit-matrix-dense-index* M)))
+;
+;;; Not sure what's easier for refs, later
+;;; (-> Bit-Matrix (Sequenceof Natural))
+;(define (bit-matrix-index* M)
+;  '())
+;
+;(define-syntax-rule (in-index* M)
 ;  (in-list (bit-matrix-index* M)))
 ;
 ;;; Return number of non-#f entries.
 ;;; (-> BitMatrix Natural)
 ;(define (bit-matrix-density M)
-;  'todo)
+;  (send (bit-matrix-cell* M) get-size))
 ;
 ;(define (bit-matrix-difference M . M*)
-;  'todo)
-;
-;(define bit-matrix-dimensions
-;  bit-matrix-unsafe-num-dimensions)
+;  (bit-matrix-map M
+;    (lambda (i)
+;      (band (bit-matrix-ref M i)
+;        (big-band ([m (in-list M*)])
+;          (bneg (bit-matrix-ref m i)))))))
 ;
 ;(define (bit-matrix-dot M . M*)
-;  'todo)
+;  (match-define (bit-matrix cols dims cell*) M)
+;  ;; TODO I don't even "see" what to do here
+;  (raise-user-error 'dot "Not implemented"))
+;  ;(bit-matrix cols dims
+;  ;  (for/fold ([acc (new tree-sequence%)])
+;  ;            ([M2 (in-list M*)])
+;  ;    (for ([i (in-dense-index* M)])
+;  ;      (define rowHead (* (modulo i b) c))
+;  ;      (define rowTail 
+;  ;    acc
 ;
 ;(define (bit-matrix-equal M . M*)
-;  'todo)
+;  (match-define (bit-matrix cols dims cell*) M)
+;  (for/and ([M2 (in-list M*)])
+;    (match-define (bit-matrix cols2 dims2 cell2*) M2)
+;    (and
+;      (= cols cols2)
+;      (= dims dims2)
+;      (sparse-sequence=? cell* cell2*))))
 ;
-;;; Return formula that at least one value in M is non-#f
-;(define (bit-matrix-lone M)
-;  'todo)
+;;;; Return formula that at least one value in M is non-#f
+;;(define (bit-matrix-lone M)
+;;  'todo)
 ;
-;(define (bit-matrix-none M)
-;  'todo)
+;;; Technically, mapi
+;;; (-> Bit-Matrix (-> Index* Bool) Bit-Matrix)
+;(define (bit-matrix-map M f)
+;  (match-define (bit-matrix cols dims cell*) M)
+;  (bit-matrix cols dims
+;    (for/fold ([acc (new tree-sequence%)])
+;              ([i* (in-index* M)])
+;      (send acc put i* (f i*)))))
+;
+;;(define (bit-matrix-none M)
+;;  'todo)
 ;
 ;(define (bit-matrix-not M)
-;  'todo)
+;  (bit-matrix-map M (lambda (i*) (bneg (bit-matrix-ref M i*)))))
 ;
-;(define (bit-matrix-one M)
-;  'todo)
+;;(define (bit-matrix-one M)
+;;  'todo)
 ;
 ;(define (bit-matrix-or M . M*)
-;  'todo)
+;  ;; TODO could shrink this def
+;  (bit-matrix-map M
+;    (lambda (i*)
+;      (bor
+;        (bit-matrix-ref M i*)
+;        (big-bor ([m (in-list M*)])
+;          (bit-matrix-ref m i*))))))
 ;
-;(define (bit-matrix-override M0 M1)
-;  'todo)
+;;(define (bit-matrix-override M0 M1)
+;;  'todo)
 ;
 ;(define (bit-matrix-ref M i)
-;  ((bit-matrix-unsafe-proc M) i))
+;  (mask-null (send (bit-matrix-cell* M) ref i)))
 ;
 ;(define (bit-matrix-set M i v)
-;  'todo)
+;  (send (bit-matrix-cell* M) put i v))
 ;
-;(define (bit-matrix-some M)
-;  'todo)
+;;(define (bit-matrix-some M)
+;;  'todo)
 ;
 ;(define (bit-matrix-subset M0 M1)
-;  'todo)
+;  (big-band ([i (in-dense-index* M0)])
+;    (bor
+;      (bneg (bit-matrix-ref M0 i))
+;      (bit-matrix-ref M1 i))))
 ;
 ;(define (bit-matrix-transpose M)
 ;  'todo) ;; Depends on representation
 ;
-;;; --- TODO ---
-;
-;(define (bit-matrix-size M)
-;  (expt (bit-matrix-s M)
-;        (bit-matrix-d M)))
-;
-;(define bit-matrix-s
-;  bit-matrix-unsafe-num-columns)
-;
-;(define bit-matrix-d
-;  bit-matrix-unsafe-num-dimensions)
-;
+;;;; --- TODO ---
+;;
+;;(define (bit-matrix-size M)
+;;  (expt (bit-matrix-s M)
+;;        (bit-matrix-d M)))
+;;
+;;(define bit-matrix-s
+;;  bit-matrix-unsafe-num-columns)
+;;
+;;(define bit-matrix-d
+;;  bit-matrix-unsafe-num-dimensions)
+;;
 ;;; =============================================================================
 ;;; === Problem -> Matrix Translation
 ;

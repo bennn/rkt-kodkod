@@ -1,6 +1,12 @@
 #lang racket/base
 
 (provide
+  sparse-sequence=?
+  sparse-sequence<%>
+  tree-sequence%
+  ;array-sequence%
+  ;homogenous-sequence%
+  ;range-sequence%
 )
 
 (require
@@ -10,7 +16,7 @@
 
 ;; =============================================================================
 
-(define (sparse=? S0 S1)
+(define (sparse-sequence=? S0 S1)
   (and (= (send S0 size) (send S1 size))
     (for/and ([i0 (send S0 indices)]
               [i1 (send S1 indices)])
@@ -23,7 +29,7 @@
     contains?
     containsIndex?
     first
-    floor
+    floor           ;; Like `ref`, but returns predecessor on failure
     indices
     isEmpty?
     last
@@ -31,8 +37,33 @@
     putAll
     ref
     remove
-    size
+    get-size
 ))
+
+;; -----------------------------------------------------------------------------
+
+;(define array-sequence%
+;  (class* object% (sparse-sequence<%>)
+;    (field
+;     [entries '()]
+;     [size 0])
+;))
+
+;; -----------------------------------------------------------------------------
+
+;(define homogenous-sequence%
+;  (class* object% (sparse-sequence<%>)
+;    TODO
+;))
+
+;; -----------------------------------------------------------------------------
+
+;(define range-sequence%
+;  (class* object% (sparse-sequence<%>)
+;    TODO
+;))
+
+;; -----------------------------------------------------------------------------
 
 (define tree-sequence%
   (class* object% (sparse-sequence<%>)
@@ -41,7 +72,6 @@
      [tree (make-int-tree)])
     (super-new)
 
-  ;; Get, but returns successor on failure
   (define/public (ceil i)
     (int-tree-searchGTE (get-field tree this) i))
 
@@ -59,7 +89,6 @@
   (define/public (first)
     (int-tree-min (get-field tree this)))
 
-  ;; Like get, but returns predecessor on failure
   (define/public (floor i)
     (int-tree-searchLTE (get-field tree this) i))
 

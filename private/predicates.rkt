@@ -5,20 +5,31 @@
   ;; (-> (Listof (Listof Any)) * Boolean)
   ;; True if every sub-list inside all argument lists have the same length
 
-  universe/c
-  ;var/c
+  (rename-out ;; from racket/contract
+   [any/c Any]
+   [boolean? Boolean]
+   [box/c Box]
+   [integer? Integer]
+   [or/c U]
+   [sequence/c Sequenceof]
+   [void? Void]
+  )
 
-  (all-from-out racket/contract)
+  Universe
+
+  contract-out
+  ->
+  ->*
 )
 
 (require
   racket/contract
+  racket/sequence
 )
 
 ;; =============================================================================
 
-(define universe/c (listof symbol?))
-;(define var/c var?)
+(define Universe (listof symbol?))
 
 (define-syntax-rule (assert=? x y)
   (unless (equal? x y)
