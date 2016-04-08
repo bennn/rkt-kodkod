@@ -44,13 +44,13 @@
    (-> int-tree? Any)]
 
   [int-tree-search
-   (-> int-tree? node? Any)]
+   (-> int-tree? integer? Any)]
 
   [int-tree-searchGTE
-   (-> int-tree? node? Any)]
+   (-> int-tree? integer? Any)]
 
   [int-tree-searchLTE
-   (-> int-tree? node? Any)]
+   (-> int-tree? integer? Any)]
 
   [node->value
    (-> node? Any)]

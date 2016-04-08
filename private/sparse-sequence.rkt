@@ -102,7 +102,7 @@
     (int-tree-max (get-field tree this)))
 
   (define/public (put i v)
-    (define e (int-tree-search (get-field tree this)))
+    (define e (int-tree-search (get-field tree this) i))
     (if e
       (set-node-value! e v)
       (begin
@@ -139,3 +139,22 @@
     (set-field! size this (- (get-field size this) 1)))
 ))
 
+;; =============================================================================
+
+(module+ test
+  (require rackunit)
+
+  (let ([ts (new tree-sequence%)]
+        [N 9])
+    (for ([i (in-range N)])
+      (send ts put i i))
+    ;; --
+    (check-equal?
+      (send ts get-size)
+      N)
+    (for ([i (in-range N)])
+      (check-equal?
+        (send ts ref i)
+        i))
+  )
+)
