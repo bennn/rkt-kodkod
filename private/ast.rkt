@@ -24,7 +24,7 @@
                  [field-stx (in-list (syntax-e #'(field-stx* ...)))])
         (syntax-parse field-stx
          #:datum-literals (:)
-         [((name*:id : ctc*) ...)
+         [((name*:id (~optional :) ctc*) ...)
           #:with t t
           (syntax/loc stx
             (begin (struct t T (name* ...) #:transparent)
@@ -347,6 +347,12 @@
         (for/list ([vd (in-list v*)])
           (loop (varDecl-e vd) bvs)))])))
 
+;; -----------------------------------------------------------------------------
+;; --- Parsing
+
+;; -- TODO make print/parse macro?
+;;     track precedence by vertical position?
+
 ;; =============================================================================
 (define-namespace-anchor anchor)
 (module+ test
@@ -359,3 +365,4 @@
       (check-exn #rx"Duplicate case for constructor 'f:no'"
         (lambda () (compile '(match-formula f [(f:no e) #t] [(f:no e) #f]))))))
 )
+
