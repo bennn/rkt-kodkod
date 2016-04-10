@@ -41,7 +41,7 @@
       (quasisyntax/loc stx
         (lambda (stx)
           (syntax-parse stx
-           [(_ tgt [(tag*:id e** (... ...)) e*] (... ...))
+           [(_ tgt [(tag*:id e** (... ...)) e* (... ...)] (... ...))
             ;; -- Check for duplicate / missing cases
             (let* ([tag-list (for/list ([tag (in-list (syntax-e #'(tag* (... ...))))]) (syntax-e tag))])
               (for ([t-stx (in-list (syntax-e #'(t* ...)))])
@@ -59,7 +59,7 @@
             (syntax/loc stx
               (if (T?-id tgt)
                 (match tgt
-                  [(tag* e** (... ...)) e*]
+                  [(tag* e** (... ...)) e* (... ...)]
                   (... ...)
                   [else (raise-user-error '#,(syntax-e #'match-T-id) "Reached absurd case for value ~a" tgt)])
                 (raise-user-error '#,(syntax-e #'match-T-id) "Expected ~a, got ~a" '#,(syntax-e #'T?-id) tgt)))])))
