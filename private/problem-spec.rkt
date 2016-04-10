@@ -53,21 +53,18 @@
 ))
 
 (require
-  kodkod/private/predicates
+  kodkod/private/ast
   kodkod/private/exceptions
+  kodkod/private/predicates
+  kodkod/private/parameters
 
   racket/match
   racket/set
   (for-syntax racket/base syntax/parse)
-  syntax/parse
 
   (only-in racket/list drop-right cartesian-product)
 )
 
-;; =============================================================================
-;; === Parameters
-
-(define *PRINT-INDENT* (make-parameter (make-string 6 #\space)))
 
 ;; =============================================================================
 ;; === STRUCTS
@@ -89,21 +86,22 @@
 ;; (define-type Universe (Vectorof Symbol))
 
 (define (make-universe sym*)
-  (for/vector ([x sym*])
-    x))
+  (list->set sym*))
+;  (for/vector ([x sym*])
+;    x))
 
-(define (universe-contains? U a)
-  (for/or ([u (in-vector U)])
-    (atom=? a u)))
+;(define (universe-contains? U a)
+;  (for/or ([u (in-vector U)])
+;    (atom=? a u)))
 
-(define (universe-index U a)
-  (for/first ([u (in-vector U)]
-              [i (in-naturals)]
-              #:when (atom=? a u))
-    i))
+;(define (universe-index U a)
+;  (for/first ([u (in-vector U)]
+;              [i (in-naturals)]
+;              #:when (atom=? a u))
+;    i))
 
-(define universe-size
-  vector-length)
+;(define universe-size
+;  vector-length)
 
 (define (format-universe u)
   u)
@@ -173,217 +171,6 @@
   (if (set-empty? c)
     0
     (length (set-first c))))
-
-;; -----------------------------------------------------------------------------
-;; formulas
-
-(struct formula () #:transparent)
-
-(define-syntax-rule (define-formula* [id e] ...)
-  (begin (struct id formula e #:transparent) ...))
-
-(define-formula*
-  (no (e))           ;; Empty
-  (lone (e))         ;; at most one
-  (one (e))          ;; exactly one
-  (some (e))         ;; non-empty
-  (subset (e0 e1))   ;; subseteq
-  (equal (e0 e1))
-  (neg (f))
-  (wedge (f0 f1))
-  (vee (f0 f1))
-  (implies (f0 f1))
-  (iff (f0 f1))
-  (forall (v* f))
-  (exists (v* f)))
-
-(define (format-formula f)
-  (format "~a\n~a" f (*PRINT-INDENT*)))
-
-;; -----------------------------------------------------------------------------
-
-(struct expr () #:transparent)
-
-(define-syntax-rule (define-expr* [id e] ...)
-  (begin (struct id expr e #:transparent) ...))
-
-(define-expr*
-  (var (v))
-  (transpose (e))        ;; ~
-  (closure (e))          ;; ^
-  (refl (e))             ;; *
-  (union (e0 e1))        ;; \cup
-  (intersection (e0 e1)) ;; \cap
-  (difference  (e0 e1))  ;; \setminus
-  (join  (e0 e1))        ;; .
-  (product (e0 e1))      ;; \rightarrow
-  (if/else (f e0 e1))    ;; f ? e1 : e2
-  (comprehension (v* f)))     ;; { v* | f }
-
-(define (formula-fvs f)
-  (match f
-   [(no e)
-    (expr-fvs e)]
-   [(lone e)
-    (expr-fvs e)]
-   [(one e)
-    (expr-fvs e)]
-   [(some e)
-    (expr-fvs e)]
-   [(subset e0 e1)
-    (set-union (expr-fvs e0) (expr-fvs e1))]
-   [(equal e0 e1)
-    (set-union (expr-fvs e0) (expr-fvs e1))]
-   [(neg f)
-    (formula-fvs f)]
-   [(wedge f0 f1)
-    (set-union (formula-fvs f0) (formula-fvs f1))]
-   [(vee f0 f1)
-    (set-union (formula-fvs f0) (formula-fvs f1))]
-   [(implies f0 f1)
-    (set-union (formula-fvs f0) (formula-fvs f1))]
-   [(iff f0 f1)
-    (set-union (formula-fvs f0) (formula-fvs f1))]
-   [(forall v* f)
-    (set-union
-      (varDecl*-fvs v*)
-      (set-subtract (formula-fvs f) (varDecl*-bvs v*)))]
-   [(exists v* f)
-    (set-union
-      (varDecl*-fvs v*)
-      (set-subtract (formula-fvs f) (varDecl*-bvs v*)))]))
-
-(define (expr-fvs e)
-  (match e
-   [(? var? (app var-v v)) ;; ha ha
-    (set v)]
-   [(transpose e)
-    (expr-fvs e)]
-   [(closure e)
-    (expr-fvs e)]
-   [(refl e)
-    (expr-fvs e)]
-   [(union e0 e1)
-    (set-union (expr-fvs e0) (expr-fvs e1))]
-   [(intersection e0 e1)
-    (set-union (expr-fvs e0) (expr-fvs e1))]
-   [(difference e0 e1)
-    (set-union (expr-fvs e0) (expr-fvs e1))]
-   [(join e0 e1)
-    (set-union (expr-fvs e0) (expr-fvs e1))]
-   [(product e0 e1)
-    (set-union (expr-fvs e0) (expr-fvs e1))]
-   [(if/else f e0 e1)
-    (set-union (formula-fvs f) (expr-fvs e0) (expr-fvs e1))]
-   [(comprehension v* f)
-    (set-union
-      (varDecl*-fvs v*)
-      (set-subtract (formula-fvs f) (varDecl*-bvs v*)))]))
-
-;; Build a set of bound variables on the way DOWN,
-;;  return the set only when finding a variable in `v`.
-;; Otherwise return the empty set.
-(define (formula-bvs f [bvs (set)] #:over v*)
-  (let loop ([f f]  [bvs bvs])
-    (match f
-     [(no e)
-      (expr-bvs e bvs #:over v*)]
-     [(lone e)
-      (expr-bvs e bvs #:over v*)]
-     [(one e)
-      (expr-bvs e bvs #:over v*)]
-     [(some e)
-      (expr-bvs e bvs #:over v*)]
-     [(subset e0 e1)
-      (set-union ;; Losing path precision, but whatever
-        (expr-bvs e0 bvs #:over v*)
-        (expr-bvs e1 bvs #:over v*))]
-     [(equal e0 e1)
-      (set-union
-        (expr-bvs e0 bvs #:over v*)
-        (expr-bvs e1 bvs #:over v*))]
-     [(neg f)
-      (loop f bvs)]
-     [(wedge f0 f1)
-      (set-union
-        (loop f0 bvs)
-        (loop f1 bvs))]
-     [(vee f0 f1)
-      (set-union
-        (loop f0 bvs)
-        (loop f1 bvs))]
-     [(implies f0 f1)
-      (set-union
-        (loop f0 bvs)
-        (loop f1 bvs))]
-     [(iff f0 f1)
-      (set-union
-        (loop f0 bvs)
-        (loop f1 bvs))]
-     [(forall v* f)
-      (loop f (set-union bvs (varDecl*-bvs v*)))]
-     [(exists v* f)
-      (loop f (set-union bvs (varDecl*-bvs v*)))])))
-
-(define (expr-bvs e bvs #:over v*)
-  (let loop ([e e]  [bvs bvs])
-    (match e
-     [(var v)
-      (if (set-member? v* v)
-        bvs
-        (set))]
-     [(transpose e)
-      (loop e bvs #:over v*)]
-     [(closure e)
-      (loop e bvs #:over v*)]
-     [(refl e)
-      (loop e bvs #:over v*)]
-     [(union e0 e1)
-      (set-union
-        (loop e0 bvs)
-        (loop e1 bvs))]
-     [(intersection e0 e1)
-      (set-union
-        (loop e0 bvs)
-        (loop e1 bvs))]
-     [(join e0 e1)
-      (set-union
-        (loop e0 bvs)
-        (loop e1 bvs))]
-     [(product e0 e1)
-      (set-union
-        (loop e0 bvs)
-        (loop e1 bvs))]
-     [(if/else f e0 e1)
-      (set-union
-        (formula-fvs f bvs #:over v*)
-        (loop e0 bvs)
-        (loop e1 bvs))]
-     [(comprehension v* f)
-      (apply set-union
-        (formula-fvs f bvs #:over v*)
-        (for/list ([vd (in-list v*)])
-          (loop (varDecl-e vd) bvs)))])))
-
-;; -----------------------------------------------------------------------------
-;; varDecl
-
-(define (write-varDecl vd port mode)
-  (fprintf port "[~a : ~a]" (varDecl-v vd) (varDecl-e vd)))
-
-;; (v : e)
-(struct varDecl (v e)
-  #:methods gen:custom-write
-  [(define write-proc write-varDecl)])
-
-(define (varDecl*-fvs vd*)
-  (for/fold ([acc (set)])
-            ([vd (in-list vd*)])
-    (set-union acc (expr-fvs (varDecl-e vd)))))
-
-(define (varDecl*-bvs vd*)
-  (for/set ([vd (in-list vd*)])
-    (varDecl-v vd)))
 
 ;; -----------------------------------------------------------------------------
 ;; Bindings
@@ -539,7 +326,7 @@
 ;; =============================================================================
 ;; === Parsing
 
-(define (relBound# stx)
+(define (relBound# stx)  ;; Syntax -> (U #f RelBound)
   (syntax-parse stx
    [(v:id {(lo*-stx:id ...) ...} {(hi*-stx:id ...) ...})
     (define lo* (syntax->datum #'((lo*-stx ...) ...)))
@@ -548,7 +335,7 @@
     (relBound (syntax-e #'v) arity lo* hi*)]
    [_ #f]))
 
-(define (formula# stx)
+(define (formula# stx)  ;; Syntax -> (U #f Formula)
   (syntax-parse stx
    #:datum-literals (no lone one some ⊆ = ¬ ∨ ∧ ⇒ ⇔ ∀ : ∃ ∣)
    [(no e)
@@ -600,7 +387,7 @@
       (and v* f (exists v* f)))]
    [_ #f]))
 
-(define (expr# stx)
+(define (expr# stx)  ;; Syntax -> (U #f Expr)
   (syntax-parse stx
    #:datum-literals (~ ^ * ∪ ∩ ∖ ∙ → ? : ∣)
    [x:id
@@ -669,13 +456,13 @@
       (if (eof-object? stx)
         (void)
         (begin
-         (syntax-parse #`#,stx ;; IDK why, but `read-syntax` alone just hangs
-          #:datum-literals (universe var fuck)
-          [(universe x*:id ...)
+         (syntax-parse #`#,stx ;; TODO `read-syntax` alone just hangs
+          #:datum-literals (universe var formula)
+          [((~optional universe) x*:id ...)
            ;; It always feels bad throwing away lexical information
            (set-box! U (make-universe (syntax->datum #'(x* ...))))]
-          [(var e* ...)
-           (set-box!/parse B* relBound# (syntax-e #'(e* ...)) #:src source-path)]
+          [((~optional var) name:id lo hi)
+           (set-box!/parse B* relBound# (list #'(name lo hi)) #:src source-path)]
           [(formula e* ...)
            (set-box!/parse F* formula# (syntax-e #'(e* ...)) #:src source-path)]
           [_
@@ -761,36 +548,6 @@
         (unbound-variable-error (set-union U+V (formula-bvs f #:over (set v))) v))))
   (void))
 
-;; =============================================================================
-;; === Bits / Booleans
-
-(struct bool () #:transparent)
-
-(define-syntax-rule (define-bool* [id e] ...)
-  (begin (struct id bool e #:transparent) ...))
-
-;; TODO unwrap these?
-(define-bool*
-  (bzero ())   ;; 0 (constant)
-  (bone ())    ;; 1 (constant)
-  (bvar (v))   ;; identifier
-  (bneg (b))
-  (band (b0 b1))
-  (bor (b0 b1))
-  (bif/else (b0 b1 b2)))
-
-(define-syntax-rule (big-bor for-clause for-body)
-  (for/fold ([acc (bzero)])
-            for-clause
-    (bor acc for-body)))
-
-(define-syntax-rule (big-band for-clause for-body)
-  (for/fold ([acc (bone)])
-            for-clause
-    (band acc for-body)))
-
-(define (b-simplify b)
-  'TODO)
 
 ;;; =============================================================================
 ;;; === Bit Matrix

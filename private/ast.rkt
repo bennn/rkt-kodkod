@@ -6,6 +6,10 @@
 ;; Hopefully that's clear from the syntax.
 ;; If not, all provides come from the `define-ADT` macro.
 
+(provide
+  define-ADT
+)
+
 (require
   kodkod/private/parameters
   kodkod/private/predicates

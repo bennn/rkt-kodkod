@@ -10,11 +10,13 @@
    [boolean? Boolean]
    [box/c Box]
    [integer? Integer]
+   [natural-number/c Natural]
    [or/c U]
    [parameter/c Parameterof]
    [sequence/c Sequenceof]
    [string? String]
    [symbol? Symbol]
+   [vectorof Vectorof]
    [void? Void]
   )
 
