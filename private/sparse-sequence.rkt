@@ -28,6 +28,7 @@
     clear
     contains?
     containsIndex?
+    clone/clear
     first
     floor           ;; Like `ref`, but returns predecessor on failure
     indices
@@ -78,6 +79,9 @@
   (define/public (clear)
     (int-tree-clear (get-field tree this))
     (set-field! i:size this 0))
+
+  (define/public (clone/clear)
+    (new tree-sequence%))
 
   (define/public (contains? v)
     (send this containsIndex? v)) ;; rly?
@@ -194,6 +198,9 @@
       (check-equal?
         (node->value (send ts last))
         (- N 1))
+      (check-equal?
+        (send (send ts clone/clear) size)
+        0)
       (check-equal?
         (begin
           (send ts put 10 10)
