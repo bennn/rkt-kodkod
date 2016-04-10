@@ -76,7 +76,8 @@
     (int-tree-searchGTE (get-field tree this) i))
 
   (define/public (clear)
-    (int-tree-clear (get-field tree this)))
+    (int-tree-clear (get-field tree this))
+    (set-field! size this 0))
 
   (define/public (contains? v)
     (send this containsIndex? v)) ;; rly?
@@ -132,29 +133,90 @@
   (define/public (get-size)
     (get-field size this))
 
-  (define (size++)
+  (define/private (size++)
     (set-field! size this (+ (get-field size this) 1)))
 
-  (define (size--)
+  (define/private (size--)
     (set-field! size this (- (get-field size this) 1)))
 ))
 
 ;; =============================================================================
 
 (module+ test
-  (require rackunit)
+  (require rackunit rackunit-abbrevs)
 
-  (let ([ts (new tree-sequence%)]
-        [N 9])
-    (for ([i (in-range N)])
-      (send ts put i i))
-    ;; --
-    (check-equal?
-      (send ts get-size)
-      N)
-    (for ([i (in-range N)])
+  (test-case "ops"
+    (let ([ts (new tree-sequence%)]
+          [N 10])
+      (for ([i (in-range N)])
+        (send ts put i i))
+      ;; --
       (check-equal?
-        (send ts ref i)
-        i))
-  )
+        (send ts get-size)
+        N)
+      (for ([i (in-range N)])
+        (check-equal?
+          (send ts ref i)
+          i))
+      ;; --
+      (check-apply* (lambda (n) (let ((r (send ts ceil n))) (if r (node->value r) #f)))
+       [9 => 9]
+       [33 => #f]
+       [0 => 0]
+       [3 => 3]
+       [-3 => 0])
+      ;; -- contains
+      (check-apply* (lambda (n) (send ts contains? n))
+       [-2 => #f]
+       [10 => #f]
+       [ 1 => #t]
+       [ 9 => #t])
+      ;; --
+      (check-apply* (lambda (n) (send ts containsIndex? n))
+       [2 => #t]
+       [-8 => #f])
+      (check-equal?
+        (node->value (send ts first))
+        0)
+      (check-apply* (lambda (n) (let ((r (send ts floor n))) (if r (node->value r) #f)))
+       [0 => 0]
+       [-1 => #f]
+       [9 => 9]
+       [111 => 9])
+      (check-equal?
+        (for/list ([i (send ts indices)]) i)
+        (for/list ([i (in-range N)]) i))
+      (check-equal?
+        (send ts isEmpty?)
+        #f)
+      (check-equal?
+        (node->value (send ts last))
+        (- N 1))
+      (check-equal?
+        (begin
+          (send ts put 10 10)
+          (send ts remove 10)
+          (send ts get-size))
+        N)
+      (check-equal?
+        (begin
+          (send ts remove 0)
+          (send ts contains? 9))
+        #t)
+  ))
+
+  (test-case "clear"
+    (let ([ts (new tree-sequence%)]
+          [N 9])
+      (send ts putAll (new (class object% (super-new)
+                             (define/public (ref i) i)
+                             (define/public (indices) (in-range 0 N)))))
+      (check-equal?
+        (get-field size ts)
+        N)
+      (send ts clear)
+      (check-equal?
+        (get-field size ts)
+        0)
+  ))
 )
