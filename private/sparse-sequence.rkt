@@ -37,7 +37,7 @@
     putAll
     ref
     remove
-    get-size
+    size
 ))
 
 ;; -----------------------------------------------------------------------------
@@ -68,7 +68,7 @@
 (define tree-sequence%
   (class* object% (sparse-sequence<%>)
     (field
-     [size 0]
+     [i:size 0] ;; i = internal
      [tree (make-int-tree)])
     (super-new)
 
@@ -77,7 +77,7 @@
 
   (define/public (clear)
     (int-tree-clear (get-field tree this))
-    (set-field! size this 0))
+    (set-field! i:size this 0))
 
   (define/public (contains? v)
     (send this containsIndex? v)) ;; rly?
@@ -97,7 +97,7 @@
     (int-tree-indices (get-field tree this)))
 
   (define/public (isEmpty?)
-    (zero? (get-field size this)))
+    (zero? (get-field i:size this)))
 
   (define/public (last)
     (int-tree-max (get-field tree this)))
@@ -130,14 +130,14 @@
         (node->value e))
       #f))
 
-  (define/public (get-size)
-    (get-field size this))
+  (define/public (size)
+    (get-field i:size this))
 
   (define/private (size++)
-    (set-field! size this (+ (get-field size this) 1)))
+    (set-field! i:size this (+ (get-field i:size this) 1)))
 
   (define/private (size--)
-    (set-field! size this (- (get-field size this) 1)))
+    (set-field! i:size this (- (get-field i:size this) 1)))
 ))
 
 ;; =============================================================================
@@ -148,11 +148,13 @@
   (test-case "ops"
     (let ([ts (new tree-sequence%)]
           [N 10])
+      (check-true (sparse-sequence=? ts ts))
       (for ([i (in-range N)])
         (send ts put i i))
+      (check-true (sparse-sequence=? ts ts))
       ;; --
       (check-equal?
-        (send ts get-size)
+        (send ts size)
         N)
       (for ([i (in-range N)])
         (check-equal?
@@ -196,7 +198,7 @@
         (begin
           (send ts put 10 10)
           (send ts remove 10)
-          (send ts get-size))
+          (send ts size))
         N)
       (check-equal?
         (begin
@@ -212,11 +214,11 @@
                              (define/public (ref i) i)
                              (define/public (indices) (in-range 0 N)))))
       (check-equal?
-        (get-field size ts)
+        (send ts size)
         N)
       (send ts clear)
       (check-equal?
-        (get-field size ts)
+        (send ts size)
         0)
   ))
 )
