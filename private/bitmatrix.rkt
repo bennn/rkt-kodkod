@@ -2,17 +2,30 @@
 
 ;; Boolean Matrix
 
-(provide
-)
+(require kodkod/private/predicates)
+(provide (contract-out
+  [bitmatrix-ref
+   (->i ([B BitMatrix] [i Natural])
+        #:pre (B i) (in-dimensions? (dims B) i)
+        [_ Bool])]
+  [bitmatrix-negate
+   (-> BitMatrix BitMatrix)]
+  [bitmatrix-and
+   bitmatrix-binop/c] ;; TODO should be n-ary operation
+  [bitmatrix-or
+   bitmatrix-binop/c]
+
+))
 
 (require
+  racket/class
   racket/match
   (for-syntax racket/base syntax/parse)
   (only-in racket/vector
     vector-append)
   ;;
   (only-in kodkod/private/ast define-ADT)
-  kodkod/private/predicates
+  kodkod/private/bool
   kodkod/private/sparse-sequence
 )
 
@@ -25,6 +38,22 @@
     [size : Natural])) ;; Number of dimensions
   (d:rectangle (
     [depth* : (Vectorof Natural)])))  ;; size = (length depth*)
+
+;; TODO n-ary
+(define (dimensions=? d0 d1)
+  (match-dimensions d0
+   [(d:square d0 s0)
+    (match d1
+     [(d:square d1 s1)
+      (and (= d0 d1) (= s0 s1))]
+     [_ #f])]
+   [(d:rectangle v0*)
+    (match d1
+     [(d:rectangle v1*)
+      (and (= (vector-length v0*) (vector-length v1*))
+           (for/and ([v0 (in-vector v0*)] [v1 (in-vector v1*)])
+             (= v0 v1)))]
+     [_ #f])]))
 
 (define (make-rectangle d*-raw)
   ;; -- If square, make a d:square
@@ -124,20 +153,96 @@
    [(d:rectangle d*)
     (for/product ([d (in-vector d*)]) d)]))
 
-(define ((in-dimension? d) n)
+(define (in-dimensions? d n)
   (and (exact-nonnegative-integer? n)
        (< n (dimensions-capacity d))))
 
 ;; -----------------------------------------------------------------------------
 
-(define (bitmatrix-ref B . x*)
-  'TODO)
+(define (bitmatrix-ref B i)
+  (send (cells B) ref i))
 
 (struct bitmatrix (
-  dims  ;; Natural
-  cells ;; sparse-sequence<%>
+  dimensions  ;; Natural
+  cells       ;; sparse-sequence<%>
 ) #:property prop:procedure bitmatrix-ref
 )
+
+(define BitMatrix bitmatrix?)
+(define dims  bitmatrix-dimensions)
+(define cells bitmatrix-cells)
+
+(define bitmatrix-binop/c
+  (->i ([B0 BitMatrix] [B1 BitMatrix])
+       #:pre (B0 B1) (dimensions=? (dims B0) (dims B1))
+       [_ BitMatrix]))
+
+(define (bitmatrix-density B)
+  (send (cells B) size))
+
+(define (bitmatrix-dense-indices B)
+  (send (cells B) indices))
+
+(define (bitmatrix-clone B)
+  (bitmatrix (dims B) (send (cells B) clone)))
+
+;; -----------------------------------------------------------------------------
+;; --- Bitmatrix combinators
+
+;; Return a bitmatrix with the opposite of B at every location.
+;;  e.g. Change null cells to TRUE
+(define (bitmatrix-negate B)
+  (define ocells (cells B))
+  (define !cells (send ocells clone/clear))
+  (for ([i (in-range (dims B))])
+    (cond
+     [(send ocells ref i)
+      => (lambda (v) (send !cells put (bool-negate  v)))]
+     [else
+      (send !cells put TRUE)]))
+  (bitmatrix (dims B) !cells))
+
+(define (bitmatrix-and B0 . B1*)
+  (bitmatrix-and* B0 B1*))
+
+(define (bitmatrix-and* B0 B1*)
+  (define Acells (send (cells B0) clone/clear))
+  ;; --
+  (unless (or (send (cells B0) isEmpty?)
+              (for/or ([B1 (in-list B1*)]) (send (cells B1) isEmpty?)))
+    (for ([i (send (cells B0) indices)])
+      (send Acells put
+        (bool-and* (send (cells B0) get i)
+                   (for/list ([B1 (in-list B1*)])
+                     (send (cells B1) get i))))))
+  (bitmatrix (dims B0) Acells))
+
+(define (bitmatrix-or B0 . B1*)
+  (bitmatrix-or* B0 B1*))
+
+(define (bitmatrix-or* B0 B1*-arg)
+  (define B* (for/list ([B (in-list (cons B0 B1*-arg))]
+                        #:when (not (send (cells B) isEmpty?)))
+               B))
+  (cond
+   [(null? B*)
+    (bitmatrix-clone B0)]
+   [(null? (cdr B*))
+    (bitmatrix-clone (car B*))]
+   [else
+    (define Acells (send (cells (car B*)) clone/clear))
+    ;; -- Take (binary)-OR of current cells and each matrice's dense entries
+    (for* ([B (in-list B*)]
+           [i (send (cells B) indices)])
+      (define Bcells (cells B))
+      (send Acells put (bool-or (send Acells ref i) (send Bcells ref i))))
+    (bitmatrix (dims (car B*)) Acells)]))
+
+(define (bitmatrix-cross B0 . B1*)
+  (bitmatrix-cross* B0 B1*))
+
+(define (bitmatrix-cross* B0 B1*-arg)
+  (raise-user-error 'not-implemented))
 
 ;; =============================================================================
 
@@ -251,5 +356,11 @@
     )
 
   ) ;; --- dimensions
+  ;; TODO dimensions=?
+  ;; 
+
+  ;; --- bitmatrix
+  ;(let ([B (make-bitmatrix TODO)])
+  ;) ;; --- bitmatrix
 
 )

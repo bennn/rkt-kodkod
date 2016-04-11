@@ -10,7 +10,12 @@
    bool-nary/c)
   (bool-or
    bool-nary/c)
+  (bool-and*
+   bool-nary*/c)
+  (bool-or*
+   bool-nary*/c)
 )
+  Bool
   TRUE FALSE
 )
 
@@ -22,6 +27,9 @@
 
 (define bool-nary/c
   (->* (bool/simpl!) () #:rest (Listof bool/simpl!) bool))
+
+(define bool-nary*/c
+  (-> bool/simpl! (Listof bool/simpl!) bool))
 
 ;; =============================================================================
 ;; --- booleans
@@ -46,6 +54,8 @@
 
 (define (bool? b)
   (raise-user-error 'not-implemented))
+
+(define Bool bool?)
 
 (define (simpl! b)
   (raise-user-error 'not-implemented))
