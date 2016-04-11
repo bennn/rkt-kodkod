@@ -28,6 +28,7 @@
     clear
     contains?
     containsIndex?
+    clone
     clone/clear
     first
     floor           ;; Like `ref`, but returns predecessor on failure
@@ -79,6 +80,12 @@
   (define/public (clear)
     (int-tree-clear (get-field tree this))
     (set-field! i:size this 0))
+
+  (define/public (clone)
+    (define ts (new tree-sequence%))
+    (set-field! i:size ts (send this size))
+    (set-field! tree ts (int-tree-clone (get-field tree this)))
+    ts)
 
   (define/public (clone/clear)
     (new tree-sequence%))

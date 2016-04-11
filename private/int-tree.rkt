@@ -25,6 +25,9 @@
   [make-node
    (-> Integer Any node?)]
 
+  [int-tree-clone
+   (-> int-tree? int-tree?)]
+
   [int-tree-clear
    (-> int-tree? Void)]
 
@@ -64,7 +67,7 @@
 
 (struct int-tree (
   color ;; Boolean, #t = black
-  root  ;; (Boxof (U #f int-tree))
+  root  ;; (Boxof (U #f node))
 ) #:transparent )
 
 (struct node (
@@ -92,6 +95,10 @@
 
 (define node->value
   node-value)
+
+(define (int-tree-clone I)
+  (int-tree (int-tree-color I)
+            (box (node-clone (unbox (int-tree-root I))))))
 
 (define (int-tree-clear I)
   (set-box! (int-tree-root I) #f))
@@ -212,6 +219,15 @@
     (node->value (int-tree-search I i))))
 
 ;; -----------------------------------------------------------------------------
+
+(define (node-clone n [parent #f])
+  (and n
+    (node (node-color n)
+          (node-key n)
+          (node-clone (node-left n) n)
+          parent
+          (node-clone (node-right n) n)
+          (node-value n))))
 
 (define (node-free! o)
   (set-node-parent! o #f)
