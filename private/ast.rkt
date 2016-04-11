@@ -161,31 +161,6 @@
   #:methods gen:custom-write
   [(define write-proc write-varDecl)])
 
-;; -----------------------------------------------------------------------------
-;; --- booleans
-
-(define-ADT bool
-  (b:zero ())   ;; 0 (constant)
-  (b:one ())    ;; 1 (constant)
-  (b:var ([v : Symbol]))   ;; identifier
-  (b:neg ([b : bool?]))
-  (b:and ([b0 : bool?] [b1 : bool?]))
-  (b:or ([b0 : bool?] [b1 : bool?]))
-  (b:if/else ([b0 : bool?] [b1 : bool?] [b2 : bool?])))
-
-(define-syntax-rule (big-bor for-clause for-body)
-  (for/fold ([acc (bzero)])
-            for-clause
-    (bor acc for-body)))
-
-(define-syntax-rule (big-band for-clause for-body)
-  (for/fold ([acc (bone)])
-            for-clause
-    (band acc for-body)))
-
-;(define (b-simplify b)
-;  'TODO)
-
 ;; =============================================================================
 ;; --- Free Variables (fvs)
 
