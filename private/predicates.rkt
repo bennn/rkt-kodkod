@@ -10,6 +10,7 @@
    [boolean? Boolean]
    [box/c Box]
    [integer? Integer]
+   [listof Listof]
    [natural-number/c Natural]
    [or/c U]
    [parameter/c Parameterof]
@@ -25,6 +26,7 @@
   contract-out
   ->
   ->*
+  ->i
 )
 
 (require
