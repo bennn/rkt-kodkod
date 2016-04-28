@@ -1,0 +1,68 @@
+\documentclass{article}
+\input{def}
+\begin{document}
+\begin{center}
+\begin{tikzpicture}
+  \node (00)                  {\dtwo{Relational}{Specification}};
+  \node (01) [below of=00
+             ,yshift=\vshim]   {\dtwo{Relational}{Bounds}};
+  \node (02) [below of=01
+             ,yshift=\vshim]   {\done{Universe}};
+
+  \node (10) [right of=00
+             ,xshift=\hshim] {\tone{Skolemizer}};
+  \node (11) [right of=01
+             ,xshift=\hshim] {};
+  \node (12) [right of=02
+             ,xshift=\hshim] {\todo{Symmetry}{Detector}};
+
+  \node (20) [right of=10
+             ,xshift=\hshim] {\todo{Sparse Matrix}{Translator}};
+  \node (21) [right of=11
+             ,xshift=\hshim] {\todo{Auto-Compat.}{Circuit Factory}};
+  \node (22) [right of=12
+             ,xshift=\hshim] {\todo{Symmetry}{Breaker}};
+
+  \node (31) [right of=21
+             ,xshift=\hshim] {\todo{Circuit}{Transformer}};
+  \node (32) [right of=22
+             ,xshift=\hshim] {};
+
+  \node (41) [right of=31
+             ,xshift=\hshim] {\tone{SAT solver}};
+  \node (42) [right of=32
+             ,xshift=\hshim] {\todo{Core}{Extractor}};
+
+  \node (51) [right of=41
+             ,xshift=\hshim] {\tone{Model}};
+  \node (52) [right of=42
+             ,xshift=\hshim] {\tone{Minimal Core}};
+
+
+
+  %\draw (00) -- (10);
+  %\draw (01) -- (10);
+  %\draw (01) -- (12);
+  %\draw (01) -- (20);
+  %\draw (01) -- (22);
+  %\draw (02) -- (12);
+
+  %\draw (10) -- (20);
+  %\draw (12) -- (22);
+
+  %\draw (20) -- (21);
+  %\draw (20) -- (31);
+  %\draw (22) -- (21);
+  %\draw (22) -- (31);
+
+  %\draw (31) -- (41);
+
+  %\draw (41) -- (42);
+  %\draw (52) -- (41);
+  %\draw (41) -- (51);
+  %\draw (42) -- (52);
+  %\draw (42) -- (41);
+
+\end{tikzpicture}
+\end{center}
+\end{document}
