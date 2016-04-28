@@ -8,6 +8,29 @@
 
 (provide
   define-ADT
+
+  format-kk:formula
+  kk:formula-bvs
+  kk:formula-fvs
+
+  kk:expr-bvs
+  kk:expr-fvs
+
+  (struct-out kk:varDecl)
+  kk:varDecl*-bvs
+  kk:varDecl*-fvs
+
+  (struct-out kk:relBound)
+  format-kk:relBound
+  kk:relBound*-bvs
+  kk:relBound-fvs
+
+  (struct-out kk:problem)
+  format-kk:problem
+
+  kk:universe
+  format-kk:universe
+
 )
 
 (require
@@ -77,188 +100,188 @@
 ;; -----------------------------------------------------------------------------
 ;; formulas
 
-(define-ADT formula
+(define-ADT kk:formula
   (f:no ( ;; Empty formula
-    [e : expr?]))
+    [e : kk:expr?]))
   (f:lone ( ;; At most one
-    [e : expr?]))
+    [e : kk:expr?]))
   (f:one ( ;; Exactly one
-    [e : expr?]))
+    [e : kk:expr?]))
   (f:some ( ;; Non-empty
-    [e : expr?]))
+    [e : kk:expr?]))
   (f:subset ( ;; Subseteq
-    [e0 : expr?]
-    [e1 : expr?]))
+    [e0 : kk:expr?]
+    [e1 : kk:expr?]))
   (f:equal (
-    [e0 : expr?]
-    [e1 : expr?]))
+    [e0 : kk:expr?]
+    [e1 : kk:expr?]))
   (f:neg (
-    [f : formula?]))
+    [f : kk:formula?]))
   (f:wedge (
-    [f0 : formula?]
-    [f1 : formula?]))
+    [f0 : kk:formula?]
+    [f1 : kk:formula?]))
   (f:vee (
-    [f0 : formula?]
-    [f1 : formula?]))
+    [f0 : kk:formula?]
+    [f1 : kk:formula?]))
   (f:implies (
-    [f0 : formula?]
-    [f1 : formula?]))
+    [f0 : kk:formula?]
+    [f1 : kk:formula?]))
   (f:iff (
-    [f0 : formula?]
-    [f1 : formula?]))
+    [f0 : kk:formula?]
+    [f1 : kk:formula?]))
   (f:forall (
-    [v* : varDecl?]
-    [f : formula?]))
+    [v* : kk:varDecl?]
+    [f : kk:formula?]))
   (f:exists (
-    [v* : varDecl?]
-    [f : formula?])))
+    [v* : kk:varDecl?]
+    [f : kk:formula?])))
 
-(define (format-formula f)
+(define (format-kk:formula f)
   (format "~a\n~a" f (*PRINT-INDENT*)))
 
 ;; -----------------------------------------------------------------------------
 
-(define-ADT expr
+(define-ADT kk:expr
   (e:var (
     [v : Symbol]))
   (e:transpose ( ;; `
-    [e : expr?]))
+    [e : kk:expr?]))
   (e:closure ( ;; ^
-    [e : expr?]))
+    [e : kk:expr?]))
   (e:refl ( ;; *
-    [e : expr?]))
+    [e : kk:expr?]))
   (e:union (
-    [e0 : expr?]
-    [e1 : expr?]))
+    [e0 : kk:expr?]
+    [e1 : kk:expr?]))
   (e:intersection (
-    [e0 : expr?]
-    [e1 : expr?]))
+    [e0 : kk:expr?]
+    [e1 : kk:expr?]))
   (e:difference  (
-    [e0 : expr?]
-    [e1 : expr?]))
+    [e0 : kk:expr?]
+    [e1 : kk:expr?]))
   (e:join (
-    [e0 : expr?]
-    [e1 : expr?]))
+    [e0 : kk:expr?]
+    [e1 : kk:expr?]))
   (e:product (
-    [e0 : expr?]
-    [e1 : expr?]))
+    [e0 : kk:expr?]
+    [e1 : kk:expr?]))
   (e:if/else (
-    [f : formula?]
-    [e0 : expr?]
-    [e1 : expr?]))
+    [f : kk:formula?]
+    [e0 : kk:expr?]
+    [e1 : kk:expr?]))
   (e:comprehension (
-    [v* : varDecl?]
-    [f : formula?])))
+    [v* : kk:varDecl?]
+    [f : kk:formula?])))
 
 ;; -----------------------------------------------------------------------------
 ;; varDecl
 
-(define (write-varDecl vd port mode)
-  (fprintf port "[~a : ~a]" (varDecl-v vd) (varDecl-e vd)))
+(define (write-kk:varDecl vd port mode)
+  (fprintf port "[~a : ~a]" (kk:varDecl-v vd) (kk:varDecl-e vd)))
 
 ;; (v : e)
-(struct varDecl (v e)
+(struct kk:varDecl (v e)
   #:methods gen:custom-write
-  [(define write-proc write-varDecl)])
+  [(define write-proc write-kk:varDecl)])
 
 ;; =============================================================================
 ;; --- Free Variables (fvs)
 
-(define (varDecl*-fvs vd*)
+(define (kk:varDecl*-fvs vd*)
   (for/fold ([acc (set)])
             ([vd (in-list vd*)])
-    (set-union acc (expr-fvs (varDecl-e vd)))))
+    (set-union acc (kk:expr-fvs (kk:varDecl-e vd)))))
 
-(define (formula-fvs f)
-  (match-formula f
+(define (kk:formula-fvs f)
+  (match-kk:formula f
    [(f:no e)
-    (expr-fvs e)]
+    (kk:expr-fvs e)]
    [(f:lone e)
-    (expr-fvs e)]
+    (kk:expr-fvs e)]
    [(f:one e)
-    (expr-fvs e)]
+    (kk:expr-fvs e)]
    [(f:some e)
-    (expr-fvs e)]
+    (kk:expr-fvs e)]
    [(f:subset e0 e1)
-    (set-union (expr-fvs e0) (expr-fvs e1))]
+    (set-union (kk:expr-fvs e0) (kk:expr-fvs e1))]
    [(f:equal e0 e1)
-    (set-union (expr-fvs e0) (expr-fvs e1))]
+    (set-union (kk:expr-fvs e0) (kk:expr-fvs e1))]
    [(f:neg f)
-    (formula-fvs f)]
+    (kk:formula-fvs f)]
    [(f:wedge f0 f1)
-    (set-union (formula-fvs f0) (formula-fvs f1))]
+    (set-union (kk:formula-fvs f0) (kk:formula-fvs f1))]
    [(f:vee f0 f1)
-    (set-union (formula-fvs f0) (formula-fvs f1))]
+    (set-union (kk:formula-fvs f0) (kk:formula-fvs f1))]
    [(f:implies f0 f1)
-    (set-union (formula-fvs f0) (formula-fvs f1))]
+    (set-union (kk:formula-fvs f0) (kk:formula-fvs f1))]
    [(f:iff f0 f1)
-    (set-union (formula-fvs f0) (formula-fvs f1))]
+    (set-union (kk:formula-fvs f0) (kk:formula-fvs f1))]
    [(f:forall v* f)
     (set-union
-      (varDecl*-fvs v*)
-      (set-subtract (formula-fvs f) (varDecl*-bvs v*)))]
+      (kk:varDecl*-fvs v*)
+      (set-subtract (kk:formula-fvs f) (kk:varDecl*-bvs v*)))]
    [(f:exists v* f)
     (set-union
-      (varDecl*-fvs v*)
-      (set-subtract (formula-fvs f) (varDecl*-bvs v*)))]))
+      (kk:varDecl*-fvs v*)
+      (set-subtract (kk:formula-fvs f) (kk:varDecl*-bvs v*)))]))
 
-(define (expr-fvs e)
-  (match-expr e
+(define (kk:expr-fvs e)
+  (match-kk:expr e
    [(e:var v)
     (set v)]
    [(e:transpose e)
-    (expr-fvs e)]
+    (kk:expr-fvs e)]
    [(e:closure e)
-    (expr-fvs e)]
+    (kk:expr-fvs e)]
    [(e:refl e)
-    (expr-fvs e)]
+    (kk:expr-fvs e)]
    [(e:union e0 e1)
-    (set-union (expr-fvs e0) (expr-fvs e1))]
+    (set-union (kk:expr-fvs e0) (kk:expr-fvs e1))]
    [(e:intersection e0 e1)
-    (set-union (expr-fvs e0) (expr-fvs e1))]
+    (set-union (kk:expr-fvs e0) (kk:expr-fvs e1))]
    [(e:difference e0 e1)
-    (set-union (expr-fvs e0) (expr-fvs e1))]
+    (set-union (kk:expr-fvs e0) (kk:expr-fvs e1))]
    [(e:join e0 e1)
-    (set-union (expr-fvs e0) (expr-fvs e1))]
+    (set-union (kk:expr-fvs e0) (kk:expr-fvs e1))]
    [(e:product e0 e1)
-    (set-union (expr-fvs e0) (expr-fvs e1))]
+    (set-union (kk:expr-fvs e0) (kk:expr-fvs e1))]
    [(e:if/else f e0 e1)
-    (set-union (formula-fvs f) (expr-fvs e0) (expr-fvs e1))]
+    (set-union (kk:formula-fvs f) (kk:expr-fvs e0) (kk:expr-fvs e1))]
    [(e:comprehension v* f)
     (set-union
-      (varDecl*-fvs v*)
-      (set-subtract (formula-fvs f) (varDecl*-bvs v*)))]))
+      (kk:varDecl*-fvs v*)
+      (set-subtract (kk:formula-fvs f) (kk:varDecl*-bvs v*)))]))
 
 
 ;; -----------------------------------------------------------------------------
 ;; --- Bound Variables (bvs)
 
-(define (varDecl*-bvs vd*)
+(define (kk:varDecl*-bvs vd*)
   (for/set ([vd (in-list vd*)])
-    (varDecl-v vd)))
+    (kk:varDecl-v vd)))
 
 ;; Build a set of bound variables on the way DOWN,
 ;;  return the set only when finding a variable in `v`.
 ;; Otherwise return the empty set.
-(define (formula-bvs f [bvs (set)] #:over v*)
+(define (kk:formula-bvs f [bvs (set)] #:over v*)
   (let loop ([f f]  [bvs bvs])
-    (match-formula f
+    (match-kk:formula f
      [(f:no e)
-      (expr-bvs e bvs #:over v*)]
+      (kk:expr-bvs e bvs #:over v*)]
      [(f:lone e)
-      (expr-bvs e bvs #:over v*)]
+      (kk:expr-bvs e bvs #:over v*)]
      [(f:one e)
-      (expr-bvs e bvs #:over v*)]
+      (kk:expr-bvs e bvs #:over v*)]
      [(f:some e)
-      (expr-bvs e bvs #:over v*)]
+      (kk:expr-bvs e bvs #:over v*)]
      [(f:subset e0 e1)
       (set-union ;; Losing path precision, but whatever
-        (expr-bvs e0 bvs #:over v*)
-        (expr-bvs e1 bvs #:over v*))]
+        (kk:expr-bvs e0 bvs #:over v*)
+        (kk:expr-bvs e1 bvs #:over v*))]
      [(f:equal e0 e1)
       (set-union
-        (expr-bvs e0 bvs #:over v*)
-        (expr-bvs e1 bvs #:over v*))]
+        (kk:expr-bvs e0 bvs #:over v*)
+        (kk:expr-bvs e1 bvs #:over v*))]
      [(f:neg f)
       (loop f bvs)]
      [(f:wedge f0 f1)
@@ -278,13 +301,13 @@
         (loop f0 bvs)
         (loop f1 bvs))]
      [(f:forall v* f)
-      (loop f (set-union bvs (varDecl*-bvs v*)))]
+      (loop f (set-union bvs (kk:varDecl*-bvs v*)))]
      [(f:exists v* f)
-      (loop f (set-union bvs (varDecl*-bvs v*)))])))
+      (loop f (set-union bvs (kk:varDecl*-bvs v*)))])))
 
-(define (expr-bvs e bvs #:over v*)
+(define (kk:expr-bvs e bvs #:over v*)
   (let loop ([e e]  [bvs bvs])
-    (match-expr e
+    (match-kk:expr e
      [(e:var v)
       (if (set-member? v* v)
         bvs
@@ -317,14 +340,134 @@
         (loop e1 bvs))]
      [(e:if/else f e0 e1)
       (set-union
-        (formula-fvs f bvs #:over v*)
+        (kk:formula-fvs f bvs #:over v*)
         (loop e0 bvs)
         (loop e1 bvs))]
      [(e:comprehension v* f)
       (apply set-union
-        (formula-fvs f bvs #:over v*)
+        (kk:formula-fvs f bvs #:over v*)
         (for/list ([vd (in-list v*)])
-          (loop (varDecl-e vd) bvs)))])))
+          (loop (kk:varDecl-e vd) bvs)))])))
+
+;; -----------------------------------------------------------------------------
+;; (define-type Universe (Vectorof Symbol))
+
+(define (kk:universe sym*)
+  (list->set sym*))
+;  (for/vector ([x sym*])
+;    x))
+
+;(define (universe-contains? U a)
+;  (for/or ([u (in-vector U)])
+;    (atom=? a u)))
+
+;(define (universe-index U a)
+;  (for/first ([u (in-vector U)]
+;              [i (in-naturals)]
+;              #:when (atom=? a u))
+;    i))
+
+;(define universe-size
+;  vector-length)
+
+(define (format-kk:universe u)
+  u)
+
+;; -----------------------------------------------------------------------------
+
+(struct kk:relBound (
+  id      ;; Symbol
+  arity   ;; Natural
+  lo*     ;; Constant
+  hi*     ;; Constant
+) #:transparent
+)
+
+(define (make-kk:relBound id lo* hi*)
+  (if (and (null? lo*) (null? hi*))
+    (kk:relBound id 0 lo* hi*)
+    (let ([arity (if (null? lo*) (length (car hi*)) (length (car lo*)))])
+      (kk:relBound id arity lo* hi*))))
+
+(define (kk:relBound-fvs rb)
+  (set-union
+    (constant-fvs (kk:relBound-lo* rb))
+    (constant-fvs (kk:relBound-hi* rb))))
+
+(define (kk:relBound*-bvs rb*)
+  (for/fold ([acc (set)])
+            ([rb (in-list rb*)])
+    (set-add acc (kk:relBound-id rb))))
+
+(define (format-kk:relBound rb)
+  (format "[~a :~a ~a ~a]\n~a"
+    (kk:relBound-id rb)
+    (kk:relBound-arity rb)
+    (kk:relBound-lo* rb)
+    (kk:relBound-hi* rb)
+    (*PRINT-INDENT*)))
+
+;; kodkod = problem
+(struct kk:problem (
+  universe ;; (Vectorof Symbol)
+  bound*   ;; (Listof Bound)
+  formula* ;; (Listof Formula)
+) #:transparent )
+
+(define (format-kk:problem kk)
+  (format "(problem\n  U = ~a\n  B = ~a\n  F = ~a\n)"
+    (format-kk:universe (kk:problem-universe kk))
+    (map format-kk:relBound (kk:problem-bound* kk))
+    (map format-kk:formula (kk:problem-formula* kk))))
+
+;; -----------------------------------------------------------------------------
+;; (define-type Constant (Setof Tuple))
+
+(define (tuple=? x* y*)
+  (let ([x*-nil (null? x*)]
+        [y*-nil (null? y*)])
+    (cond
+     [(and x*-nil y*-nil)
+      #t]
+     [(or x*-nil y*-nil)
+      #f]
+     [else
+      (and (atom=? (car x*) (car y*))
+           (tuple=? (cdr x*) (cdr y*)))])))
+
+(define atom=?
+  eq?)
+
+(define (make-constant . tuple*)
+  ;; TODO all inputs must be lists of same length
+  (list->set tuple*))
+
+(define (constant-fvs c)
+  (for*/set ([a* (in-set c)]
+             [a (in-list a*)])
+    a))
+
+(define (constant-arity c)
+  (if (set-empty? c)
+    0
+    (length (set-first c))))
+
+;; -----------------------------------------------------------------------------
+;; Bindings
+
+;; (define-type Binding (HashTable Symbol Constant))
+
+(define (env-init)
+  (hasheq))
+
+(define (env-lookup b v)
+  (hash-ref b v (lambda () (raise-user-error 'lookup))))
+
+(define (env-update b v s)
+  (hash-set b v s))
+
+(define ⊕ ;; \oplus
+  env-update)
 
 ;; -----------------------------------------------------------------------------
 ;; --- Parsing
@@ -340,8 +483,10 @@
   (test-case "match-formula"
     (parameterize ([current-namespace (namespace-anchor->namespace anchor)])
       (check-exn #rx"Missing case for constructor 'f:lone'"
-        (lambda () (compile '(match-formula f [(f:no e) #f]))))
+        (lambda () (compile '(match-kk:formula f [(f:no e) #f]))))
       (check-exn #rx"Duplicate case for constructor 'f:no'"
-        (lambda () (compile '(match-formula f [(f:no e) #t] [(f:no e) #f]))))))
+        (lambda () (compile '(match-kk:formula f [(f:no e) #t] [(f:no e) #f]))))))
+
+  ;; TODO lots more tests
 )
 
