@@ -139,10 +139,10 @@
     [f : kk:formula?])))
 
 (define MultiplicityFormula
-  (U f:no f:some f:one f:lone))
+  (U f:no? f:some? f:one? f:lone?))
 
 (define ComparisonFormula
-  (U f:subset f:equal))
+  (U f:subset? f:equal?))
 
 (define (format-kk:formula f)
   (format "~a\n~a" f (*PRINT-INDENT*)))
@@ -480,6 +480,7 @@
   (b:or  ([b0 : kk:bool?] [b1 : kk:bool?]))
   (b:if/else ([b0 : kk:bool?] [b1 : kk:bool?] [b2 : kk:bool?]))
 )
+(define Bool kk:bool?)
 
 ;; -----------------------------------------------------------------------------
 ;; --- Parsing
