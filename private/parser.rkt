@@ -19,14 +19,14 @@
 ;; - Fig2-3 : missing ∙ × definitions
 ;;          : TE(if ...) needs to define m_q
 
-#;(provide
-  read-problem
+(provide
+  read-kk:problem
   ;; (-> Any Problem)
 
-  lint-problem
+  lint-kk:problem
   ;; (-> Problem Void)
 
-  format-problem
+  format-kk:problem
   ;; (-> Problem String)
   ;; Pretty printing
 
@@ -55,7 +55,6 @@
 
   racket/match
   racket/set
-  ;(for-syntax racket/base syntax/parse)
 
   syntax/parse
   (only-in racket/list drop-right cartesian-product)
@@ -180,9 +179,14 @@
       (and acc
         (let ([e+ (kk:expr# e)])
           (and e+
-            (let ([v+ (for/list ([v (in-list (syntax-e v*))]) (kk:varDecl (syntax-e v) e+))])
-              (append v+ acc))))))]
+            (let ([v+* (for/list ([v (in-list (syntax-e v*))])
+                         (kk:varDecl (syntax-e v) e+))])
+              (append v+* acc))))))]
    [_ #f]))
+
+(define-syntax-class sexp
+  (pattern (e* ...)))
+  ;;TODO
 
 ;; (-> Input-Port Problem)
 (define (input-port->problem [source-path #f] [in-port (current-input-port)])
@@ -197,12 +201,13 @@
          (syntax-parse #`#,stx ;; TODO `read-syntax` alone just hangs
           #:datum-literals (universe var formula)
           [((~optional universe) x*:id ...)
-           ;; It always feels bad throwing away lexical information
+           #:when (not (unbox U))
+           ;; -- always feels bad throwing away lexical information
            (set-box! U (kk:universe (syntax->datum #'(x* ...))))]
-          [((~optional var) name:id lo hi)
+          [((~optional var) name:id lo:sexp hi:sexp)
            (set-box!/parse B* kk:relBound# (list #'(name lo hi)) #:src source-path)]
-          [(formula e* ...)
-           (set-box!/parse F* kk:formula# (syntax-e #'(e* ...)) #:src source-path)]
+          [((~optional formula) e* ...)
+           (set-box!/parse F* kk:formula# (list (syntax-e #'(e* ...))) #:src source-path)]
           [_
            (parse-warning source-path stx)])
          (loop)))))
@@ -224,7 +229,7 @@
         (parse-warning source-path (syntax->datum (car e*)))
         (loop (cdr e*))]))))
 
-(define (read-problem [src-path #f] [any (current-input-port)])
+(define (read-kk:problem [src-path #f] [any (current-input-port)])
   (cond
    [(path-string? any)
     (path-string->problem any)]
@@ -266,7 +271,7 @@
   (raise-user-error 'kodkod:lint "Variable '~a' is unbound in environment ~a.~a"
     v U (format-suggestion (suggest-var v U))))
 
-(define (lint-problem kk)
+(define (lint-kk:problem kk)
   ;; TODO
   ;; - no unbound variables
   ;; -  .;...

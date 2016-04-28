@@ -130,10 +130,10 @@
     [f0 : kk:formula?]
     [f1 : kk:formula?]))
   (f:forall (
-    [v* : kk:varDecl?]
+    [v* : kk:varDecl*?]
     [f : kk:formula?]))
   (f:exists (
-    [v* : kk:varDecl?]
+    [v* : kk:varDecl*?]
     [f : kk:formula?])))
 
 (define (format-kk:formula f)
@@ -183,6 +183,9 @@
 (struct kk:varDecl (v e)
   #:methods gen:custom-write
   [(define write-proc write-kk:varDecl)])
+
+(define kk:varDecl*?
+  (Listof kk:varDecl?))
 
 ;; =============================================================================
 ;; --- Free Variables (fvs)
