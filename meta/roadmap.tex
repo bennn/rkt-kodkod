@@ -3,14 +3,17 @@
 \begin{document}
 \begin{center}
 \begin{tikzpicture}
-  \node (00)                  {\dtwo{Relational}{Specification}};
+  \node (00)                   {\dtwo{Relational}{Specification}};
   \node (01) [below of=00
              ,yshift=\vshim]   {\dtwo{Relational}{Bounds}};
   \node (02) [below of=01
              ,yshift=\vshim]   {\done{Universe}};
+  %% All these handled in parsing (get from user, interpret from syntax in parser)
 
   \node (10) [right of=00
-             ,xshift=\hshim] {\tone{Skolemizer}};
+             ,xshift=\hshim] {\sone{Skolemizer}};
+  %% Skipping skolemizer, won't use existentials for now (performance implications?)
+
   \node (11) [right of=01
              ,xshift=\hshim] {};
   \node (12) [right of=02
@@ -64,5 +67,9 @@
   %\draw (42) -- (41);
 
 \end{tikzpicture}
+
+\vspace{0.2cm}
+\colorcode
+
 \end{center}
 \end{document}
