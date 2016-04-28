@@ -1,5 +1,9 @@
 #lang racket/base
 
+(provide
+  ;; (define-parameter id ...)
+)
+
 (require
   kodkod/private/predicates
   (for-syntax racket/base syntax/parse)

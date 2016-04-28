@@ -230,13 +230,16 @@
         (loop (cdr e*))]))))
 
 (define (read-kk:problem [src-path #f] [any (current-input-port)])
-  (cond
-   [(path-string? any)
-    (path-string->problem any)]
-   [(input-port? any)
-    (input-port->problem src-path any)]
-   [else
-    (parse-error 'read-problem "Cannot read from source '~a'" any)]))
+  (define kk
+    (cond
+     [(path-string? any)
+      (path-string->problem any)]
+     [(input-port? any)
+      (input-port->problem src-path any)]
+     [else
+      (parse-error 'read-problem "Cannot read from source '~a'" any)]))
+  (lint-kk:problem kk)
+  (annotate-kk:problem kk))
 
 (define (path-string->problem ps)
   (with-input-from-file ps
@@ -291,4 +294,10 @@
         (unbound-variable-error (set-union U+V (kk:formula-bvs f #:over (set v))) v))))
   (void))
 
+;; =============================================================================
+;; === Annotate
+;;     Mark structural sharing, and whatever else from kodkod.util.nodes.AnnotatedNode
+
+(define (annotate-kk:problem kk)
+  kk)
 

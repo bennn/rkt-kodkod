@@ -30,7 +30,9 @@
 
   kk:universe
   format-kk:universe
-
+  assert-universe-contains?
+  universe-contains?
+  universe-size
 )
 
 (require
@@ -136,6 +138,12 @@
     [v* : kk:varDecl*?]
     [f : kk:formula?])))
 
+(define MultiplicityFormula
+  (U f:no f:some f:one f:lone))
+
+(define ComparisonFormula
+  (U f:subset f:equal))
+
 (define (format-kk:formula f)
   (format "~a\n~a" f (*PRINT-INDENT*)))
 
@@ -150,21 +158,22 @@
     [e : kk:expr?]))
   (e:refl ( ;; *
     [e : kk:expr?]))
-  (e:union (
+  (e:union ( ;; +
     [e0 : kk:expr?]
     [e1 : kk:expr?]))
-  (e:intersection (
+  (e:intersection ( ;; &
     [e0 : kk:expr?]
     [e1 : kk:expr?]))
-  (e:difference  (
+  (e:difference  ( ;; -
     [e0 : kk:expr?]
     [e1 : kk:expr?]))
-  (e:join (
+  (e:join ( ;; .
     [e0 : kk:expr?]
     [e1 : kk:expr?]))
-  (e:product (
+  (e:product ( ;; ->
     [e0 : kk:expr?]
     [e1 : kk:expr?]))
+  ;(e:override ( ;; ++ TODO))
   (e:if/else (
     [f : kk:formula?]
     [e0 : kk:expr?]
@@ -357,12 +366,16 @@
 
 (define (kk:universe sym*)
   (list->set sym*))
-;  (for/vector ([x sym*])
-;    x))
 
-;(define (universe-contains? U a)
-;  (for/or ([u (in-vector U)])
-;    (atom=? a u)))
+(define (assert-universe-contains? U a)
+  (unless (universe-contains? U a)
+    (raise-user-error 'unbound-var "Unbound variable '~a' in universe '~a'" a U)))
+
+(define (universe-contains? U a)
+  (set-member? U a))
+
+(define (universe-size U)
+  (set-count U))
 
 ;(define (universe-index U a)
 ;  (for/first ([u (in-vector U)]
@@ -456,21 +469,17 @@
     (length (set-first c))))
 
 ;; -----------------------------------------------------------------------------
-;; Bindings
+;; --- Booleans
 
-;; (define-type Binding (HashTable Symbol Constant))
-
-(define (env-init)
-  (hasheq))
-
-(define (env-lookup b v)
-  (hash-ref b v (lambda () (raise-user-error 'lookup))))
-
-(define (env-update b v s)
-  (hash-set b v s))
-
-(define ⊕ ;; \oplus
-  env-update)
+(define-ADT kk:bool
+  (b:zero ())
+  (b:one ())
+  (b:var ([v : Symbol]))
+  (b:neg ([b : kk:bool?]))
+  (b:and ([b0 : kk:bool?] [b1 : kk:bool?]))
+  (b:or  ([b0 : kk:bool?] [b1 : kk:bool?]))
+  (b:if/else ([b0 : kk:bool?] [b1 : kk:bool?] [b2 : kk:bool?]))
+)
 
 ;; -----------------------------------------------------------------------------
 ;; --- Parsing

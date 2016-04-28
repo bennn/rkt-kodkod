@@ -1,97 +1,90 @@
 #lang racket/base
 
-;; TODO
+;; Fancy constructors for kk:bool values
+;; - lifted to handle #f
+;; - automatically collapse, sometimes
 
 (require kodkod/private/predicates)
 (provide (contract-out
-  (bool-negate
-   (-> bool/simpl! bool))
-  (bool-and
-   bool-nary/c)
-  (bool-or
-   bool-nary/c)
-  (bool-and*
-   bool-nary*/c)
-  (bool-or*
-   bool-nary*/c)
-)
-  Bool
-  TRUE FALSE
-)
+  (make-b:zero
+   (-> b:zero?))
+
+  (make-b:one
+   (-> b:one?))
+
+  (make-b:var
+   (-> (U #f Symbol) (U #f b:var?)))
+
+  (make-b:neg
+   (-> (U #f kk:bool?) (U #f b:neg?)))
+
+  (make-b:and
+   (-> (U #f kk:bool?) (U #f kk:bool?) (U #f b:and?)))
+
+  (make-b:or
+   (-> (U #f kk:bool?) (U #f kk:bool?) (U #f b:or?)))
+
+  (make-b:if/else
+   (-> (U #f kk:bool?) (U #f kk:bool?) (U #f kk:bool?) (U #f b:if/else?)))
+))
+
+;; -----------------------------------------------------------------------------
 
 (require
+  kodkod/private/ast
 )
 
-(define (bool/simpl! b)
-  (and (bool? b) (simpl! b)))
-
-(define bool-nary/c
-  (->* (bool/simpl!) () #:rest (Listof bool/simpl!) bool))
-
-(define bool-nary*/c
-  (-> bool/simpl! (Listof bool/simpl!) bool))
-
-;; =============================================================================
-;; --- booleans
-;;     Internal representation
-
-(module private racket/base
-  (require
-    kodkod/private/predicates
-    (only-in kodkod/private/ast
-      define-ADT))
-  (define-ADT bool
-    (b:zero ())   ;; 0 (constant)
-    (b:one ())    ;; 1 (constant)
-    (b:var ([v : Symbol]))   ;; identifier
-    (b:neg ([b : bool?]))
-    (b:and ([b0 : bool?] [b1 : bool?]))
-    (b:or ([b0 : bool?] [b1 : bool?]))
-    (b:if/else ([b0 : bool?] [b1 : bool?] [b2 : bool?])))
-) (require 'private)
-
 ;; =============================================================================
 
-(define (bool? b)
-  (raise-user-error 'not-implemented))
+(define B:ZERO (b:zero))
+(define B:ONE (b:one))
 
-(define Bool bool?)
+(define (make-b:zero)
+  B:ZERO)
 
-(define (simpl! b)
-  (raise-user-error 'not-implemented))
+(define (make-b:one)
+  B:ONE)
 
-(define FALSE (b:zero))
-(define TRUE (b:one))
+(define (make-b:var v)
+  (and v (b:var v)))
 
-(define-syntax-rule (big-bor for-clause for-body)
-  (for/fold ([acc (bzero)])
-            for-clause
-    (bor acc for-body)))
+(define (make-b:neg b)
+  (and b
+    (cond
+     [(b:zero? b)
+      (make-b:one)]
+     [(b:one? b)
+      (make-b:zero)]
+     [else
+      (b:neg b)])))
 
-(define-syntax-rule (big-band for-clause for-body)
-  (for/fold ([acc (bone)])
-            for-clause
-    (band acc for-body)))
+(define (make-b:and b0 b1)
+  (and b0 b1
+    (cond
+     [(or (b:zero? b0) (b:zero? b1))
+      (make-b:zero)]
+     [(and (b:one? b0) (b:one? b1))
+      (make-b:one)]
+     [else
+      (b:and b0 b1)])))
 
-(define (bool-and b0 . b1*)
-  (bool-and* b0 b1*))
+(define (make-b:or b0 b1)
+  (and b0 b1
+    (cond
+     [(or (b:one? b0) (b:one? b1))
+      (make-b:one)]
+     [(or (b:zero? b0) (b:zero? b1))
+      (make-b:zero)]
+     [else
+      (b:or b0 b1)])))
 
-(define (bool-and* b0 b1*)
-  (raise-user-error 'not-implemented))
-  ;(if (or (false? b0)
-  ;        (for/or ([b1 (in-list b1*)]) (false? b1)))
-  ;  FALSE
-  ;  (raise-user-error 'not-implemented)))
-
-(define (bool-or b0 . b1*)
-  (bool-or* b0 b1*))
-
-(define (bool-or* b0 b1*)
-  (raise-user-error 'not-implemented))
-
-(define (bool-negate b)
-  (raise-user-error 'not-implemented))
-
-(define (b-simplify b)
-  (raise-user-error 'not-implemented))
+(define (make-b:if/else b0 b1 b2)
+  (and b0 b1 b2
+    (cond
+     [(b:one? b0)
+      b1]
+     [(b:zero? b0)
+      b2]
+     [else
+      (b:if/else b0 b1 b2)])))
 
