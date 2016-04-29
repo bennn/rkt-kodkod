@@ -4,9 +4,14 @@
 
 ;; TODO
 ;; - should use top/bot sequences
+;; - strong contracts
 
 (require kodkod/private/predicates)
 (provide (contract-out
+
+  [bitmatrix-put
+   (-> BitMatrix (Listof Natural) Any Void)]
+
   [bitmatrix-ref
    (->i ([B BitMatrix] [i Natural])
         #:pre (B i) (in-dimensions? (dims B) i)
@@ -21,6 +26,9 @@
   [bitmatrix-bot
    (-> Dimensions BitMatrix)]
 
+  [var->bitmatrix
+   (-> Dimensions Natural BitMatrix)]
+
   [bitmatrix-negate
    (-> BitMatrix BitMatrix)]
 
@@ -34,6 +42,12 @@
    (-> BitMatrix BitMatrix)]
 
   [bitmatrix-some
+   (-> BitMatrix BitMatrix)]
+
+  [bitmatrix-closure
+   (-> BitMatrix BitMatrix)]
+
+  [bitmatrix-transpose
    (-> BitMatrix BitMatrix)]
 
   ;; TODO can some binops relax with binop/c ?
@@ -57,6 +71,9 @@
   [bitmatrix-implies
    bitmatrix-binop/c]
 
+  [bitmatrix-subset
+   bitmatrix-binop/c]
+
   [bitmatrix-iff
    bitmatrix-binop/c]
 
@@ -67,6 +84,12 @@
   [in-bitmatrix
    (-> BitMatrix (Sequenceof Any))]
   ;; TODO what is an indexed entry?
+
+  [bitmatrix=?
+   (-> BitMatrix BitMatrix Boolean)]
+
+  [bitmatrix-choice
+   (-> BitMatrix BitMatrix BitMatrix BitMatrix)]
 ))
 
 (require
@@ -85,10 +108,15 @@
 (define (bitmatrix-ref B i)
   (send (cells B) ref i))
 
+(define (write-bitmatrix B port mode)
+  (fprintf port "{bitmatrix ~a ~a}" (dims B) (cells B)))
+
 (struct bitmatrix (
   dimensions  ;; Dimensions
   cells       ;; sparse-sequence<%>
 ) #:property prop:procedure bitmatrix-ref
+  #:methods gen:custom-write
+  [(define write-proc write-bitmatrix)]
 )
 
 (define BitMatrix bitmatrix?)
@@ -96,9 +124,10 @@
 (define cells bitmatrix-cells)
 
 (define bitmatrix-binop/c
-  (->i ([B0 BitMatrix] [B1 BitMatrix])
-       #:pre (B0 B1) (dimensions=? (dims B0) (dims B1))
-       [_ BitMatrix]))
+  (-> BitMatrix BitMatrix BitMatrix))
+;  (->i ([B0 BitMatrix] [B1 BitMatrix])
+;       #:pre (B0 B1) (dimensions=? (dims B0) (dims B1))
+;       [_ BitMatrix]))
 
 (define (bitmatrix-density B)
   (send (cells B) size))
@@ -116,6 +145,9 @@
   (for/sum ([i* (bitmatrix-dense-indices B)]
             #:when (b:one? (B i*)))
     1))
+
+(define (bitmatrix-put B i* v)
+  (send (cells B) put i* v))
 
 ;; -----------------------------------------------------------------------------
 ;; --- Bitmatrix combinators
@@ -137,6 +169,11 @@
 
 (define (bitmatrix-bot D)
   (bitmatrix D (new tree-sequence%)))
+
+(define (var->bitmatrix D i)
+  (define B (bitmatrix-bot D))
+  (bitmatrix-put B (list i i) (make-b:one))
+  B)
 
 ;; No true elements
 (define (bitmatrix-none B)
@@ -173,6 +210,24 @@
      [else
       (send !cells put i* one)]))
   (bitmatrix (dims B) !cells))
+
+(define (bitmatrix-closure B)
+  (define D (dims B))
+  (unless (and (= 2 (dimensions-count D)) (d:square? D))
+    (raise-user-error 'bitmatrix-closure "Non-square dimensions"))
+  (if (bitmatrix-empty? B)
+    (bitmatrix-clone B)
+    (raise-user-error 'closure "Not implemented")))
+
+(define (bitmatrix-transpose B)
+  (define D (dims B))
+  (define D+ (dimensions-transpose D))
+  (define rows (dimensions-rows D))
+  (define cols (dimensions-cols D))
+  (raise-user-error 'transpose "Not implemented"))
+  ;; L688 kodkod.engine.bool.BooleanMatrix
+  ;(define C (send (cells B) clone))
+  ;(for ([i* (in-
 
 (define (bitmatrix-and B0 B1)
   (define Acells (send (cells B0) clone/clear))
@@ -227,23 +282,45 @@
   ;(bitmatrix (dims B0) Acells))
 
 (define (bitmatrix-cross B0 B1)
-  (raise-user-error 'not-implemented))
+  (raise-user-error 'bitmatrix-cross "Not implemented"))
 
 (define (bitmatrix-implies B0 B1)
   (bitmatrix-or
     (bitmatrix-negate B0)
     B1))
 
+(define bitmatrix-subset
+  bitmatrix-implies)
+
 (define (bitmatrix-iff B0 B1)
   (bitmatrix-and
     (bitmatrix-implies B0 B1)
     (bitmatrix-implies B1 B0)))
+
+;; -----------------------------------------------------------------------------
+;; --- more utilities
 
 (define (bitmatrix->bool B)
   (raise-user-error 'bitmatrix->bool "Not implemented"))
 
 (define (in-bitmatrix B)
   (raise-user-error 'in-bitmatrix "Not implemented"))
+
+(define (bitmatrix=? B0 B1)
+  (zero? (bitmatrix-count (bitmatrix-negate (bitmatrix-iff B0 B1)))))
+
+;; TODO what is B0?
+;; In `kodkod.engine.bool.booleanMatrix`, the condition value is pushed down and and-ed
+;;  with each entry.
+(define (bitmatrix-choice B0 B1 B2)
+  (cond
+   [(zero? (bitmatrix-count (bitmatrix-negate B0)))
+    B1]
+   [(zero? (bitmatrix-count B0))
+    B2]
+   [else
+    (raise-user-error 'bitmatrix-choice
+      "Cannot branch on non-atomic condition")]))
 
 ;; =============================================================================
 
@@ -349,6 +426,23 @@
     (check-equal? (bitmatrix-count (bitmatrix-iff B= B-)) 12)
   )
 
+  (test-case "bitmatrix=?"
+    (check-true (bitmatrix=? B+ B+))
+    (check-true (bitmatrix=? B= B=))
+    (check-true (bitmatrix=? B- B-))
+    (check-false (bitmatrix=? B+ B=))
+    (check-false (bitmatrix=? B+ B-))
+    (check-false (bitmatrix=? B= B-))
+    ;(check-true (bitmatrix=? (bitmatrix-and B+ B-) B-))
+  )
 
+  (test-case "bitmatrix-choice"
+  )
+
+  (test-case "bitmatrix-closure"
+  )
+
+  (test-case "bitmatrix-TODO"
+  )
 )
 

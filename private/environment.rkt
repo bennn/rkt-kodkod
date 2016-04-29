@@ -5,6 +5,7 @@
   env-ref
   env-put
   ⊕
+  env-union
 )
 
 ;; =============================================================================
@@ -14,13 +15,18 @@
   (hasheq))
 
 (define (env-ref b v)
-  (hash-ref b v (lambda () (raise-user-error 'env-ref))))
+  (hash-ref b v (lambda () (raise-user-error 'env-ref "No value for key '~a'" v))))
 
 (define (env-put b v s)
   (hash-set b v s))
 
 (define ⊕ ;; \oplus
   env-put)
+
+(define (env-union b0 b1)
+  (for/fold ([b b0])
+            ([(k v) (in-hash b1)])
+    (env-put b k v)))
 
 ;; =============================================================================
 

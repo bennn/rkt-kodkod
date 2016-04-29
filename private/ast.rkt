@@ -34,6 +34,7 @@
   assert-universe-contains?
   universe-contains?
   universe-size
+  in-universe
 
   Bool
 )
@@ -380,6 +381,9 @@
 
 (define (universe-size U)
   (set-count U))
+
+(define in-universe
+  in-set)
 
 ;(define (universe-index U a)
 ;  (for/first ([u (in-vector U)]

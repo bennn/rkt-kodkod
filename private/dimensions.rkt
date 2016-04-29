@@ -10,7 +10,7 @@
 
   dimensions=?
 
-  make-rectangle
+  (rename-out [make-rectangle make-dimensions])
 
   make-square
 
@@ -21,6 +21,9 @@
   dimensions-cross
 
   dimensions-count
+
+  dimensions-cols
+  dimensions-rows
 
   dimensions-transpose
 
@@ -150,6 +153,16 @@
     size]
    [(d:rectangle d*)
     (vector-length d*)]))
+
+(define dimensions-cols
+  dimensions-count)
+
+(define (dimensions-rows d)
+  (match-dimensions d
+   [(d:square depth size)
+    depth]
+   [(d:rectangle d*)
+    (vector-ref d* 0)]))
 
 (define (dimensions-transpose d)
   (let ((c (dimensions-count d)))
