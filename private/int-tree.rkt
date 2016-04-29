@@ -23,7 +23,7 @@
    (-> int-tree?)]
 
   [make-node
-   (-> Integer Any node?)]
+   (-> Key Any node?)]
 
   [int-tree-clone
    (-> int-tree? int-tree?)]
@@ -35,7 +35,7 @@
    (-> int-tree? node? Void)]
 
   [int-tree-indices
-   (-> int-tree? (Sequenceof Integer))]
+   (-> int-tree? (Sequenceof Key))]
 
   [int-tree-insert
    (-> int-tree? node? Void)]
@@ -47,18 +47,34 @@
    (-> int-tree? Any)]
 
   [int-tree-search
-   (-> int-tree? integer? Any)]
+   (-> int-tree? Key Any)]
 
   [int-tree-searchGTE
-   (-> int-tree? integer? Any)]
+   (-> int-tree? Key Any)]
 
   [int-tree-searchLTE
-   (-> int-tree? integer? Any)]
+   (-> int-tree? Key Any)]
 
   [node->value
    (-> node? Any)]
 
 ))
+
+(define Key (U Integer (Listof Integer)))
+
+(define (=* k1* k2*)
+  (if (integer? k1*)
+    (= k1* k2*)
+    (for/and ([k1 (in-list k1*)]
+              [k2 (in-list k2*)])
+      (= k1 k2))))
+
+(define (<* k1* k2*)
+  (if (integer? k1*)
+    (< k1* k2*)
+    (for/and ([k1 (in-list k1*)]
+              [k2 (in-list k2*)])
+      (< k1 k2))))
 
 ;; =============================================================================
 
@@ -156,7 +172,7 @@
     (let loop ([x (unbox (int-tree-root I))] [prev #f])
       (if (not x)
         prev
-        (if (< z-key (node-key x))
+        (if (<* z-key (node-key x))
           (loop (node-left x) x)
           (loop (node-right x) x)))))
   (set-node-parent! z y)
@@ -166,7 +182,7 @@
     (set-box! (int-tree-root I) z)
     (begin
       (set-node-color! z #f)
-      (if (< z-key (node-key y))
+      (if (<* z-key (node-key y))
         (set-node-left! y z)
         (set-node-right! y z))
       (insert-fixup I z))))
@@ -181,8 +197,8 @@
   (let loop ([n (unbox (int-tree-root I))])
     (and n
       (cond
-       [(= k (node-key n))   n]
-       [(< k (node-key n))   (loop (node-left n))]
+       [(=* k (node-key n))   n]
+       [(<* k (node-key n))   (loop (node-left n))]
        [else                 (loop (node-right n))]))))
 
 (define (int-tree-searchGTE I k)
@@ -195,9 +211,9 @@
   (let loop ([n (unbox (int-tree-root I))])
     (and n
       (cond
-       [(= k (node-key n))
+       [(=* k (node-key n))
         n]
-       [(< k (node-key n))
+       [(<* k (node-key n))
         (define L (node-left n))
         (if L
           (loop L)

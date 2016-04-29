@@ -13,19 +13,24 @@
    (-> b:one?))
 
   (make-b:var
-   (-> (U #f Symbol) (U #f b:var?)))
+   (-> (U #f Symbol) (U #f kk:bool?)))
 
   (make-b:neg
-   (-> (U #f kk:bool?) (U #f b:neg?)))
+   (-> (U #f kk:bool?) (U #f kk:bool?)))
 
   (make-b:and
-   (-> (U #f kk:bool?) (U #f kk:bool?) (U #f b:and?)))
+   (-> (U #f kk:bool?) (U #f kk:bool?) (U #f kk:bool?)))
 
   (make-b:or
-   (-> (U #f kk:bool?) (U #f kk:bool?) (U #f b:or?)))
+   (-> (U #f kk:bool?) (U #f kk:bool?) (U #f kk:bool?)))
 
   (make-b:if/else
-   (-> (U #f kk:bool?) (U #f kk:bool?) (U #f kk:bool?) (U #f b:if/else?)))
+   (-> (U #f kk:bool?) (U #f kk:bool?) (U #f kk:bool?) (U #f kk:bool?)))
+
+  ;; -- combinators
+
+  (make-b:difference
+   (-> (U #f kk:bool?) (U #f kk:bool?) (U #f kk:bool?)))
 ))
 
 ;; -----------------------------------------------------------------------------
@@ -87,4 +92,7 @@
       b2]
      [else
       (b:if/else b0 b1 b2)])))
+
+(define (make-b:difference b0 b1)
+  (make-b:if/else b1 (make-b:zero) b0))
 

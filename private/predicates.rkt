@@ -13,6 +13,7 @@
    [listof Listof]
    [natural-number/c Natural]
    [or/c U]
+   [set/c Setof]
    [parameter/c Parameterof]
    [sequence/c Sequenceof]
    [string? String]
@@ -20,8 +21,6 @@
    [vectorof Vectorof]
    [void? Void]
   )
-
-  Universe
 
   contract-out
   ->
@@ -32,11 +31,11 @@
 (require
   racket/contract
   racket/sequence
+  (only-in racket/set
+    set/c)
 )
 
 ;; =============================================================================
-
-(define Universe (listof symbol?))
 
 (define-syntax-rule (assert=? x y)
   (unless (equal? x y)

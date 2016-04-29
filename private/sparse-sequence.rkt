@@ -1,5 +1,10 @@
 #lang racket/base
 
+;; TODO
+;; - diag-sequence%
+;; - top-sequence%
+;; - bot-sequence%
+
 (provide
   sparse-sequence=?
   sparse-sequence<%>

@@ -28,11 +28,14 @@
   (struct-out kk:problem)
   format-kk:problem
 
+  Universe
   kk:universe
   format-kk:universe
   assert-universe-contains?
   universe-contains?
   universe-size
+
+  Bool
 )
 
 (require
@@ -362,7 +365,8 @@
           (loop (kk:varDecl-e vd) bvs)))])))
 
 ;; -----------------------------------------------------------------------------
-;; (define-type Universe (Vectorof Symbol))
+
+(define Universe (Setof Symbol))
 
 (define (kk:universe sym*)
   (list->set sym*))

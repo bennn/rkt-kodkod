@@ -28,6 +28,8 @@
 
   in-dimensions?
 
+  in-dimensions
+
 )
 
 ;; -----------------------------------------------------------------------------
@@ -171,6 +173,22 @@
 (define (in-dimensions? d n)
   (and (exact-nonnegative-integer? n)
        (< n (dimensions-capacity d))))
+
+(define (in-dimensions D)
+  (match-dimensions D
+   [(d:square depth size)
+    (unless (= size 2)
+      (raise-user-error 'dimensions "2D only"))
+    ;; TODO lazy
+    (for*/list ([x (in-range depth)]
+                [y (in-range depth)])
+      (list x y))]
+   [(d:rectangle d*)
+    (unless (= (length d*) 2)
+      (raise-user-error 'dimensions "2D only"))
+    (for*/list ([x (in-range (car d*))]
+                [y (in-range (cadr d*))])
+      (list x y))]))
 
 (define (universe->dimensions U)
   (make-square (universe-size U) 2))
