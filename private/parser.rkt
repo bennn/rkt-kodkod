@@ -226,7 +226,7 @@
        [(parse# (car e*))
         => (lambda (rb) (cons rb (loop (cdr e*))))]
        [else
-        (parse-warning source-path (syntax->datum (car e*)))
+        (parse-warning source-path (car e*))
         (loop (cdr e*))]))))
 
 (define (read-kk:problem [src-path #f] [any (current-input-port)])

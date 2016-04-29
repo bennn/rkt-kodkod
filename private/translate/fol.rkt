@@ -41,7 +41,7 @@
   (for/fold ([b (env-init)])
             ([v (in-universe U)]
              [i (in-naturals)])
-    (printf "ENV adding val for key '~a'\n" v)
+    ;(printf "ENV adding val for key '~a'\n" v)
     (env-put b v (var->bitmatrix D i))))
 
 (define (bounds->env B*)

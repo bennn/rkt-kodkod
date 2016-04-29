@@ -42,6 +42,6 @@
     kk))
 
 (define (skolemize-kk:problem kk)
-  (printf "Warning: skolemization not implemented\n")
+  ;(printf "Warning: skolemization not implemented\n")
   kk)
 

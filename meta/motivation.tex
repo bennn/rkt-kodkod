@@ -1,0 +1,39 @@
+\section{Motivation}
+\label{sec:motivation}
+
+The \href{https://emina.github.io/rosette/}{Rosette} solver-aided language
+ is an interesting research project aimed at spanning a gap between formal
+ methods and programming.
+Rosette's goal is to help programming language designers incorporate
+ SMT and/or SAT solver technology in domain-specific programming languages (DSLs).
+It does so by implementing a compiler from a high-level language (suitable
+ for general purpose programming or for designing DSLs) to solver formulas.
+
+Until recently, Rosette gave users the choice of three solver backends:
+ Microsoft's \href{https://github.com/Z3Prover/z3/wiki}{Z3} solver,
+ NYU's \href{http://cvc4.cs.nyu.edu/web/}{CVC4},
+ and MIT's \href{http://alloy.mit.edu/kodkod/index.html}{Kodkod} solver.
+Kodkod was the default backend and Kodkod is implemented in Java.
+So new Rosette users had to first install Racket\footnote{Rosette is implemented in Racket.}
+ and then install Java before they could begin using Rosette's solver-aided languages.
+
+My goal was to move the Java implementation to Racket, with the hope that
+ all of Rosette could be implemented in a single language.
+As a secondary goal, I wanted to learn how to implement a model checker
+ and at least ``go through the motions'' of writing one.\footnote{Hunter S. Thompson used to ``go through the motions'' of writing a great novel by copying pages from \emph{The Great Gatsby}~\cite{ny}. There are worse role models.}
+
+Of these three goals, only 1 was really successful:
+ I learned plenty about how Kodkod is implemented.
+But I have much more to learn, because to date I have only written a compiler from
+ propositional logic to CNF.
+Hence the revised name of this semester project: Kodkod $\sqrt{2}$.
+One checkpoint has been implemented, but the road to completing the solver
+ stretched on far longer than I expected, and seemed to increase the more I
+ learned.
+
+The reason my second goal of implementing all Rosette in Racket has failed is
+ due to a technicality.
+Kodkod is designed to use a \emph{fast} external SAT solver and all the best
+ are written in C.
+
+

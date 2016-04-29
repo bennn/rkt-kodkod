@@ -1,0 +1,97 @@
+\section{Appendix}
+\label{sec:appendix}
+
+\subsection{Benchmark Script}
+
+The script used to generate the plot and timings from \secref{sec:eval} is printed below.
+For numbers {\tt N} between {\tt MIN-VARS} and {\tt MAX-VARS} we generate {\tt NUM-ITERS}
+ random Kodkod programs with:
+\begin{itemize}
+\item A universe of {\tt N} atoms
+\item {\tt N} relational variables, each with randomly chosen (valid) lower and upper bounds
+\item {\tt N} binary propositional formulas
+\end{itemize}
+
+Time taken is measured as the real time to complete a system call that compiles
+ the Kodkod program.
+
+
+\begin{lstlisting}
+#lang racket/base
+(random-seed 8)
+(require plot/no-gui racket/list racket/system racket/port)
+
+(define NUM-ITERS 20)
+(define MIN-VARS   4)
+(define MAX-VARS  200)
+(define TMP "kk.rkt")
+
+(define BINOP* `(⊆ = ∧ ∨ ⇒ ⇔ ))
+(define UNOP* `(no lone one some))
+
+(define (random-ref x*)
+  (list-ref x* (random (length x*))))
+
+(define (random-slice x*)
+  (define L (length x*))
+  (cond
+   [(< L 2) `()]
+   [else
+    (define lo (+ 1 (random (- L 1))))
+    (define hi (random lo L))
+    (take (drop x* lo) (- hi lo))]))
+
+(define (test-random-problem n)
+  (define U* (for/list ([i (in-range n)]) (format "a~a" i)))
+  (define B* (for/list ([i (in-range n)])
+               (define u (random-slice U*))
+               (list (format "var~a" i)
+                     (map list (random-slice u))
+                     (map list (random-slice U*)))))
+  (define F* (for/list ([i (in-range n)])
+               (define op (random-ref BINOP*))
+               (define u0 (random-ref UNOP*))
+               (define u1 (random-ref UNOP*))
+               (define v0 (car (random-ref B*)))
+               (define v1 (car (random-ref B*)))
+               (define expr? (memq op `(⊆ = )))
+               (list (if expr? v0 (list u0 v0))
+                     op
+                     (if expr? v1 (list u1 v1)))))
+  (with-output-to-file TMP #:exists `replace
+    (lambda ()
+      (displayln "#lang kodkod")
+      (displayln U*)
+      (for-each displayln B*)
+      (for-each displayln F*)))
+  (define-values (r* cpu real gc) (time-apply (lambda () (system (format "raco make ~a" TMP))) `()))
+  real)
+
+;; N = max number of variables
+(define (main)
+  (parameterize ([plot-font-size 16])
+    (plot-file
+      (append
+        (for/list ([N (in-range MIN-VARS (+ 1 MAX-VARS))])
+          (vrule (- N 0.5) #:width 0.6 #:color 0))
+        (for/list ([N (in-range MIN-VARS (+ 1 MAX-VARS))])
+          (printf "Testing ~a variables\n" N)
+          (points
+            (for*/list ([i (in-range NUM-ITERS)])
+              (list N (test-random-problem N)))
+            #:color 2
+            #:alpha 0.6
+            #:sym `fullcircle
+            #:size 6
+            #:x-jitter 0.4)))
+      "output.png"
+      `png
+      #:x-label "Num. Variables + Clauses"
+      #:y-label "Compile Time (ms)"
+      #:width 700
+      #:height 400)))
+
+(module+ main
+  (main)
+)
+\end{lstlisting}

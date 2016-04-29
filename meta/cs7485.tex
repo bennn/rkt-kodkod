@@ -1,0 +1,28 @@
+\documentclass{article}
+\input{def}
+\begin{document}
+\maketitle
+
+\begin{abstract}
+  The goal of my \href{http://www.ccs.neu.edu/home/wahl/Teaching/Software-Model-Checking/2016-Spring/}{CS 7485} course project was to port the \href{http://alloy.mit.edu/kodkod/}{Kodkod} relational logic solver from Java to Racket
+   and compare the two implementations.
+  This is an end-of-semester status report: I was unable to meet the original
+   goal but have implemented a Kodkod-inspired compiler from propositional
+   logic to CNF (\secref{sec:compile}) and run some very simple benchmarks (\secref{sec:eval}).
+  Remaining goals are listed in \secref{sec:future}.
+\end{abstract}
+
+\input{motivation}
+\input{kodkod}
+\input{compile}
+\input{eval}
+\newpage
+\input{future}
+
+\newpage
+\input{appendix}
+
+\bibliographystyle{plain}
+\bibliography{cs7485}
+
+\end{document}
