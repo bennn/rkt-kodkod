@@ -20,22 +20,22 @@
   ;; ---
 
   [bitmatrix-none
-   (-> BitMatrix Boolean)]
+   (-> BitMatrix Bool)]
 
   [bitmatrix-lone
-   (-> BitMatrix Boolean)]
+   (-> BitMatrix Bool)]
 
   [bitmatrix-one
-   (-> BitMatrix Boolean)]
+   (-> BitMatrix Bool)]
 
   [bitmatrix-some
-   (-> BitMatrix Boolean)]
+   (-> BitMatrix Bool)]
 
   [bitmatrix-subset
-   (-> BitMatrix BitMatrix Boolean)]
+   (-> BitMatrix BitMatrix Bool)]
 
   [bitmatrix=?
-   (-> BitMatrix BitMatrix Boolean)]
+   (-> BitMatrix BitMatrix Bool)]
 
   ;; ---
 
@@ -210,17 +210,22 @@
   (bitmatrix (dims B) !cells))
 
 (define (bitmatrix-subset B0 B1)
-  (for/and ([i* (bitmatrix-dense-indices B0)])
+  (for/fold ([acc (make-b:one)])
+            ([i* (bitmatrix-dense-indices B0)])
     ;; B0(i*) = false
     ;;   else
     ;; B1(i*) != true
-    (or (b:zero? (B0 i*))
-        (let ([b1-i* (B1 i*)])
-          (and b1-i* (not (b:zero? b1-i*)))))))
+    (define B0i* (or (B0 i*) (make-b:zero)))
+    (define B1i* (or (B1 i*) (make-b:zero)))
+    (make-b:and
+      acc
+      (make-b:or
+        (make-b:neg B0i*)
+        B1i*))))
 
 (define (bitmatrix=? B0 B1)
-  (and (bitmatrix-subset B0 B1)
-       (bitmatrix-subset B1 B0)))
+  (make-b:and (bitmatrix-subset B0 B1)
+              (bitmatrix-subset B1 B0)))
 
 ;; -----------------------------------------------------------------------------
 
@@ -429,13 +434,13 @@
   )
 
   (test-case "bitmatrix=?"
-    (check-true (bitmatrix=? B+ B+))
-    (check-true (bitmatrix=? B= B=))
-    (check-true (bitmatrix=? B- B-))
-    (check-false (bitmatrix=? B+ B=))
-    (check-false (bitmatrix=? B+ B-))
-    (check-false (bitmatrix=? B= B-))
-    ;(check-true (bitmatrix=? (bitmatrix-and B+ B-) B-))
+    (check-equal? (bitmatrix=? B+ B+) (make-b:one))
+    (check-equal? (bitmatrix=? B= B=) (make-b:one))
+    (check-equal? (bitmatrix=? B- B-) (make-b:one))
+    (check-equal? (bitmatrix=? B+ B=) (make-b:zero))
+    (check-equal? (bitmatrix=? B+ B-) (make-b:zero))
+    (check-equal? (bitmatrix=? B= B-) (make-b:zero))
+    ;(check-equal? (bitmatrix=? (bitmatrix-and B+ B-) B-))
   )
 
   (test-case "bitmatrix-choice"

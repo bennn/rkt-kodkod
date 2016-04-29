@@ -19,8 +19,8 @@
 (define (kk-read-syntax src-path in)
   (define kk (read-kk:problem src-path in))
   (displayln (format-kk:problem kk))
-  (define M (translate-kk:problem kk))
-  (displayln M)
+  (define cnf (translate-kk:problem kk))
+  (displayln cnf)
   (strip-context
     #'(module kodkod racket/base
         (printf "hello world\n"))))
