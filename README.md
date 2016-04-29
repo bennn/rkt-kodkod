@@ -1,49 +1,23 @@
-kk
+kodkod √2
 ===
 
-TODO
-- private/bitmatrix (also, dimensions tests)
-- test clone methods (sparse-sequence, int-tree)
+Porting the [Kodkod](https://github.com/emina/kodkod) solver for relational logic to Racket.
 
+This project is _under construction_.
+To install, clone this repository and use `raco pkg install`:
+
+```
+    > git clone https://github.com/bennn/rkt-kodkod
+    > raco pkg install ./rkt-kodkod
+```
+
+
+In this directory
 ---
 
-Kodkod, in Racket
-
-(James Borholt is working on the same thing, but specialized to Rosette)
-
-- If this works, can use `call-with-limits` in Rosette
-
-
-
-
-
-SAT Solver
-===
-
-Kodkod needs a SAT solver. Options:
-
-- http://minisat.se/
-- http://www.labri.fr/perso/lsimon/glucose/
-  - https://github.com/wadoon/glucose
-- http://fmv.jku.at/lingeling/
-- https://github.com/msoos/cryptominisat
-
-
-Small Model Theorem
----
-- "if sat, there is a small proof"
-- some prefix classes of FOL shown decidable via finite model property
-  = satisfiable formulas have finite models
-- verification : if no small models violate property and we know
-                 the small model bound, we're done
-- bound computed from syntax of spec Ai and property P
-- lemma 1: depends on the size of index variables used in P
-    not really sure how to use indices in a real formula
-
-
-SATzilla
----
-- empircal hardness models to choose solvers
-- satzilla : construct per-instance algorithm portfolios
-
-
+- `examples/` small relational logic programs, written in `#lang kodkod`
+- `info.rkt` metadata for `raco pkg`
+- `lang/` contains definition of `#lang kodkod`
+- `meta/` writings and presentations about this porting effort
+- `private/` all the source code
+- `scribblings/` documentation for Racket users
