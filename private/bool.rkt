@@ -4,6 +4,8 @@
 ;; - lifted to handle #f
 ;; - automatically collapse, sometimes
 
+;; aka circuits library
+
 (require kodkod/private/predicates)
 (provide (contract-out
   (make-b:zero
@@ -13,24 +15,30 @@
    (-> b:one?))
 
   (make-b:var
-   (-> (U #f Symbol) (U #f kk:bool?)))
+   (-> (U #f Symbol) (U #f Bool)))
 
   (make-b:neg
-   (-> (U #f kk:bool?) (U #f kk:bool?)))
+   (-> (U #f Bool) (U #f Bool)))
 
   (make-b:and
-   (-> (U #f kk:bool?) (U #f kk:bool?) (U #f kk:bool?)))
+   (-> (U #f Bool) (U #f Bool) (U #f Bool)))
 
   (make-b:or
-   (-> (U #f kk:bool?) (U #f kk:bool?) (U #f kk:bool?)))
+   (-> (U #f Bool) (U #f Bool) (U #f Bool)))
 
   (make-b:if/else
-   (-> (U #f kk:bool?) (U #f kk:bool?) (U #f kk:bool?) (U #f kk:bool?)))
+   (-> (U #f Bool) (U #f Bool) (U #f Bool) (U #f Bool)))
 
   ;; -- combinators
 
+  (make-b:implies
+   (-> (U #f Bool) (U #f Bool) (U #f Bool)))
+
+  (make-b:iff
+   (-> (U #f Bool) (U #f Bool) (U #f Bool)))
+
   (make-b:difference
-   (-> (U #f kk:bool?) (U #f kk:bool?) (U #f kk:bool?)))
+   (-> (U #f Bool) (U #f Bool) (U #f Bool)))
 ))
 
 ;; -----------------------------------------------------------------------------
@@ -92,6 +100,14 @@
       b2]
      [else
       (b:if/else b0 b1 b2)])))
+
+(define (make-b:implies b0 b1)
+  (make-b:or (make-b:neg b0) b1))
+
+(define (make-b:iff b0 b1)
+  (make-b:and (make-b:implies b0 b1)
+              (make-b:implies b1 b0)))
+
 
 (define (make-b:difference b0 b1)
   (make-b:if/else b1 (make-b:zero) b0))

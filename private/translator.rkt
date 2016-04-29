@@ -17,7 +17,8 @@
 
 (require
   kodkod/private/ast
-  kodkod/private/translate/first-order-logic
+  kodkod/private/translate/fol
+  kodkod/private/translate/cnf
 
   racket/match
 )
@@ -26,8 +27,8 @@
 
 (define (translate-kk:problem kk)
   (let* ([kk (optimize-kk:problem kk)]
-         [M (kk:problem->bitmatrix kk)])
-    M))
+         [B (kk:problem->kk:bool kk)])
+    B))
 ;         [cnf (kk:bool->cnf cc)])
 ;    cnf))
 

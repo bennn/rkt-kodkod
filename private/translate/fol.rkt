@@ -1,5 +1,9 @@
 #lang racket/base
 
+;; fol = first order logic
+
+;; Convert first-order-logic to an internal representation
+
 ;; Originally `kodkod.engine.fol2sat.FOL2BoolTranslator`
 ;;  which was parameterized over a leaf interpreter
 ;;  and made a "boolean formula or matrix"
@@ -8,11 +12,12 @@
 ;; ? visit(Relation relation)
 
 (provide
-  kk:problem->bitmatrix
+  kk:problem->kk:bool
 )
 
 (require
   kodkod/private/ast
+  kodkod/private/bool
   kodkod/private/bitmatrix
   (only-in kodkod/private/dimensions
     make-dimensions
@@ -51,7 +56,7 @@
     ;; -- see Section 2.2.1 of dissertation
     (env-put b id M)))
 
-(define (kk:problem->bitmatrix kk)
+(define (kk:problem->kk:bool kk)
   (define C (make-cache))
   (define U (kk:problem-universe kk))
   (define B* (kk:problem-bound* kk))
@@ -61,14 +66,14 @@
                   [*current-env* (universe->env)]
                   [*current-env* (env-union (*current-env*)
                                             (bounds->env B*))])
-    (kk:formula*->bitmatrix F*)))
+    (kk:formula*->kk:bool F*)))
 
-(define (kk:formula*->bitmatrix F*)
-  (for/fold ([acc (bitmatrix-top (universe->dimensions (*current-universe*)))])
+(define (kk:formula*->kk:bool F*)
+  (for/fold ([acc (make-b:one)])
             ([F (in-list F*)])
-    (bitmatrix-and acc (kk:formula->bitmatrix F))))
+    (make-b:and acc (kk:formula->kk:bool F))))
 
-(define (kk:formula->bitmatrix F)
+(define (kk:formula->kk:bool F)
   (match-kk:formula F
    [(f:no e)
     (bitmatrix-none
@@ -91,37 +96,39 @@
       (kk:expr->bitmatrix e0)
       (kk:expr->bitmatrix e1))]
    [(f:neg f)
-    (bitmatrix-negate
-      (kk:formula->bitmatrix f))]
+    (make-b:neg
+      (kk:formula->kk:bool f))]
    [(f:wedge f0 f1)
-    (bitmatrix-and
-      (kk:formula->bitmatrix f0)
-      (kk:formula->bitmatrix f1))]
+    (make-b:and
+      (kk:formula->kk:bool f0)
+      (kk:formula->kk:bool f1))]
    [(f:vee f0 f1)
-    (bitmatrix-or
-      (kk:formula->bitmatrix f0)
-      (kk:formula->bitmatrix f1))]
+    (make-b:or
+      (kk:formula->kk:bool f0)
+      (kk:formula->kk:bool f1))]
    [(f:implies f0 f1)
-    (bitmatrix-implies
-      (kk:formula->bitmatrix f0)
-      (kk:formula->bitmatrix f1))]
+    (make-b:implies
+      (kk:formula->kk:bool f0)
+      (kk:formula->kk:bool f1))]
    [(f:iff f0 f1)
-    (bitmatrix-iff
-      (kk:formula->bitmatrix f0)
-      (kk:formula->bitmatrix f1))]
+    (make-b:iff
+      (kk:formula->kk:bool f0)
+      (kk:formula->kk:bool f1))]
    [(f:forall v* f)
     (match v*
      ['()
-      (bitmatrix-one (universe-size (*current-universe*)))]
+      (make-b:one)]
      [(cons v v*)
-      (define e+ (kk:varDecl->bitmatrix v))
-      (for/fold ([M (bitmatrix-one (universe-size (*current-universe*)))])
-                ([s (in-bitmatrix e+)]) ;; -- WHAT IS THIS
-        (bitmatrix-and M
-          (parameterize ([*current-env* (env-put (*current-env*) v s)])
-            (kk:formula->bitmatrix (f:forall v* f)))))])]
+      (raise-user-error 'forall->bool "Not implemented")
+      ;(define e+ (kk:varDecl->bitmatrix v))
+      ;(for/fold ([M (bitmatrix-one (universe-size (*current-universe*)))])
+      ;          ([s (in-bitmatrix e+)]) ;; -- WHAT IS THIS
+      ;  (bitmatrix-and M
+      ;    (parameterize ([*current-env* (env-put (*current-env*) v s)])
+      ;      (kk:formula->bitmatrix (f:forall v* f)))))
+      ])]
    [(f:exists v* f)
-    (raise-user-error 'exists->bitmatrix "Not implemented")]
+    (raise-user-error 'exists->bool "Not implemented")]
 ))
 
 (define (kk:expr->bitmatrix E)
@@ -159,8 +166,8 @@
       (kk:expr->bitmatrix e0)
       (kk:expr->bitmatrix e1))]
    [(e:if/else f e0 e1)
-    (bitmatrix-choice ;; formula choice?
-      (kk:formula->bitmatrix f)
+    (bitmatrix-choice
+      (kk:formula->kk:bool f)
       (kk:expr->bitmatrix e0)
       (kk:expr->bitmatrix e1))]
    [(e:comprehension v* f)

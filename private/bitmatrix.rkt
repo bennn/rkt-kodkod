@@ -17,6 +17,28 @@
         #:pre (B i) (in-dimensions? (dims B) i)
         [_ Bool])]
 
+  ;; ---
+
+  [bitmatrix-none
+   (-> BitMatrix Boolean)]
+
+  [bitmatrix-lone
+   (-> BitMatrix Boolean)]
+
+  [bitmatrix-one
+   (-> BitMatrix Boolean)]
+
+  [bitmatrix-some
+   (-> BitMatrix Boolean)]
+
+  [bitmatrix-subset
+   (-> BitMatrix BitMatrix Boolean)]
+
+  [bitmatrix=?
+   (-> BitMatrix BitMatrix Boolean)]
+
+  ;; ---
+
   [bitmatrix-identity
    (-> Dimensions BitMatrix)]
 
@@ -31,19 +53,6 @@
 
   [bitmatrix-negate
    (-> BitMatrix BitMatrix)]
-
-  [bitmatrix-none
-   (-> BitMatrix BitMatrix)]
-
-  [bitmatrix-lone
-   (-> BitMatrix BitMatrix)]
-
-  [bitmatrix-one
-   (-> BitMatrix BitMatrix)]
-
-  [bitmatrix-some
-   (-> BitMatrix BitMatrix)]
-
   [bitmatrix-closure
    (-> BitMatrix BitMatrix)]
 
@@ -71,25 +80,15 @@
   [bitmatrix-implies
    bitmatrix-binop/c]
 
-  [bitmatrix-subset
-   bitmatrix-binop/c]
-
   [bitmatrix-iff
    bitmatrix-binop/c]
-
-  [bitmatrix->bool
-   (-> BitMatrix kk:bool?)]
-  ;; TODO what does this do?
 
   [in-bitmatrix
    (-> BitMatrix (Sequenceof Any))]
   ;; TODO what is an indexed entry?
 
-  [bitmatrix=?
-   (-> BitMatrix BitMatrix Boolean)]
-
   [bitmatrix-choice
-   (-> BitMatrix BitMatrix BitMatrix BitMatrix)]
+   (-> Bool BitMatrix BitMatrix BitMatrix)]
 ))
 
 (require
@@ -178,24 +177,23 @@
 ;; No true elements
 (define (bitmatrix-none B)
   (if (= 0 (bitmatrix-count B))
-    (bitmatrix-top (dims B))
-    (bitmatrix-bot (dims B))))
+    (make-b:one)
+    (make-b:zero)))
 
 (define (bitmatrix-lone B)
-  ;; At least 
   (if (<= (bitmatrix-count B) 1)
-    (bitmatrix-top (dims B))
-    (bitmatrix-bot (dims B))))
+    (make-b:one)
+    (make-b:zero)))
 
 (define (bitmatrix-one B)
   (if (= (bitmatrix-count B) 1)
-    (bitmatrix-top (dims B))
-    (bitmatrix-bot (dims B))))
+    (make-b:one)
+    (make-b:zero)))
 
 (define (bitmatrix-some B)
   (if (< 0 (bitmatrix-count B))
-    (bitmatrix-top (dims B))
-    (bitmatrix-bot (dims B))))
+    (make-b:one)
+    (make-b:zero)))
 
 ;; Return a bitmatrix with the opposite of B at every location.
 ;;  e.g. Change null cells to TRUE
@@ -210,6 +208,21 @@
      [else
       (send !cells put i* one)]))
   (bitmatrix (dims B) !cells))
+
+(define (bitmatrix-subset B0 B1)
+  (for/and ([i* (bitmatrix-dense-indices B0)])
+    ;; B0(i*) = false
+    ;;   else
+    ;; B1(i*) != true
+    (or (b:zero? (B0 i*))
+        (let ([b1-i* (B1 i*)])
+          (and b1-i* (not (b:zero? b1-i*)))))))
+
+(define (bitmatrix=? B0 B1)
+  (and (bitmatrix-subset B0 B1)
+       (bitmatrix-subset B1 B0)))
+
+;; -----------------------------------------------------------------------------
 
 (define (bitmatrix-closure B)
   (define D (dims B))
@@ -289,9 +302,6 @@
     (bitmatrix-negate B0)
     B1))
 
-(define bitmatrix-subset
-  bitmatrix-implies)
-
 (define (bitmatrix-iff B0 B1)
   (bitmatrix-and
     (bitmatrix-implies B0 B1)
@@ -300,25 +310,17 @@
 ;; -----------------------------------------------------------------------------
 ;; --- more utilities
 
-(define (bitmatrix->bool B)
-  (raise-user-error 'bitmatrix->bool "Not implemented"))
-
 (define (in-bitmatrix B)
   (raise-user-error 'in-bitmatrix "Not implemented"))
 
-(define (bitmatrix=? B0 B1)
-  (zero? (bitmatrix-count (bitmatrix-negate (bitmatrix-iff B0 B1)))))
-
-;; TODO what is B0?
-;; In `kodkod.engine.bool.booleanMatrix`, the condition value is pushed down and and-ed
-;;  with each entry.
-(define (bitmatrix-choice B0 B1 B2)
+(define (bitmatrix-choice b B1 B2)
   (cond
-   [(zero? (bitmatrix-count (bitmatrix-negate B0)))
+   [(b:one? b)
     B1]
-   [(zero? (bitmatrix-count B0))
+   [(b:zero? b)
     B2]
    [else
+    ;; TODO push `b` into matrix
     (raise-user-error 'bitmatrix-choice
       "Cannot branch on non-atomic condition")]))
 
@@ -348,33 +350,33 @@
   )
 
   (test-case "bitmatrix-empty?"
-    (check-false (bitmatrix-empty? B+))
-    (check-false (bitmatrix-empty? B=))
-    (check-true (bitmatrix-empty? B-))
+    (check-equal? (bitmatrix-empty? B+) #f)
+    (check-equal? (bitmatrix-empty? B=) #f)
+    (check-equal? (bitmatrix-empty? B-) #t)
   )
 
   (test-case "bitmatrix-none"
-    (check-true (bitmatrix-empty? (bitmatrix-none B+)))
-    (check-true (bitmatrix-empty? (bitmatrix-none B=)))
-    (check-false (bitmatrix-empty? (bitmatrix-none B-)))
+    (check-equal? (bitmatrix-none B+) (make-b:zero))
+    (check-equal? (bitmatrix-none B=) (make-b:zero))
+    (check-equal? (bitmatrix-none B-) (make-b:one))
   )
 
   (test-case "bitmatrix-lone"
-    (check-true (bitmatrix-empty? (bitmatrix-lone B=)))
-    (check-true (bitmatrix-empty? (bitmatrix-lone B+)))
-    (check-false (bitmatrix-empty? (bitmatrix-lone B-)))
+    (check-equal? (bitmatrix-lone B=) (make-b:zero))
+    (check-equal? (bitmatrix-lone B+) (make-b:zero))
+    (check-equal? (bitmatrix-lone B-) (make-b:one))
   )
 
   (test-case "bitmatrix-one"
-    (check-true (bitmatrix-empty? (bitmatrix-one B=)))
-    (check-true (bitmatrix-empty? (bitmatrix-one B+)))
-    (check-true (bitmatrix-empty? (bitmatrix-one B-)))
+    (check-equal? (bitmatrix-one B=) (make-b:zero))
+    (check-equal? (bitmatrix-one B+) (make-b:zero))
+    (check-equal? (bitmatrix-one B-) (make-b:zero))
   )
 
   (test-case "bitmatrix-some"
-    (check-false (bitmatrix-empty? (bitmatrix-some B=)))
-    (check-false (bitmatrix-empty? (bitmatrix-some B+)))
-    (check-true (bitmatrix-empty? (bitmatrix-some B-)))
+    (check-equal? (bitmatrix-some B=) (make-b:one))
+    (check-equal? (bitmatrix-some B+) (make-b:one))
+    (check-equal? (bitmatrix-some B-) (make-b:zero))
   )
 
   (test-case "bitmatrix-negate"
@@ -442,7 +444,5 @@
   (test-case "bitmatrix-closure"
   )
 
-  (test-case "bitmatrix-TODO"
-  )
 )
 
