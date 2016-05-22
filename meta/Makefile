@@ -11,3 +11,11 @@ short:
 
 roadmap:
 	xelatex roadmap.tex
+
+clean:
+	rm *.log
+	rm *.out
+	rm *.aux
+	rm *.bbl
+	rm *.blg
+	rm *.pdf
